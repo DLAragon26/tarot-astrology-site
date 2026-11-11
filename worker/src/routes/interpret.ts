@@ -1,10 +1,10 @@
 import {
   ERR,
+  isReadingMode,
+  isSpreadId,
   validateCards,
   validateMoodTag,
   validateQuestion,
-  validateReadingMode,
-  validateSpreadId,
   validateTopicTag,
   type InterpretRequest,
 } from '@tarot/shared';
@@ -76,9 +76,9 @@ interpretRoutes.post('/', async (c) => {
     return c.json({ error: { code: ERR.VALIDATION, message: '请求体必须是 JSON' } }, 400);
   }
   const mode = body.mode;
-  if (!validateReadingMode(mode)) return c.json({ error: { code: ERR.VALIDATION, message: 'mode 必须是 online 或 offline' } }, 400);
+  if (!isReadingMode(mode)) return c.json({ error: { code: ERR.VALIDATION, message: 'mode 必须是 online 或 offline' } }, 400);
   const spread = body.spread;
-  if (!validateSpreadId(spread)) return c.json({ error: { code: ERR.VALIDATION, message: '未知的牌阵' } }, 400);
+  if (!isSpreadId(spread)) return c.json({ error: { code: ERR.VALIDATION, message: '未知的牌阵' } }, 400);
   const question = validateQuestion(body.question);
   if (!question) return c.json({ error: { code: ERR.VALIDATION, message: '问题不能为空且不超过 500 字' } }, 400);
   const cardsResult = validateCards(spread, body.cards);

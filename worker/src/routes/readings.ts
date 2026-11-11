@@ -1,12 +1,12 @@
 import {
   ERR,
+  isReadingMode,
+  isSpreadId,
   parseDrawnCardsJson,
   validateCards,
   validateMoodTag,
   validateOptionalText,
   validateQuestion,
-  validateReadingMode,
-  validateSpreadId,
   validateTopicTag,
   type Reading,
   type ReadingInput,
@@ -58,10 +58,6 @@ function rowToReading(row: ReadingRow): Reading | null {
   };
 }
 
-function notFound(c: AppContext): Response {
-  return c.json({ error: { code: ERR.NOT_FOUND, message: '记录不存在' } }, 404);
-}
-
 // GET /api/readings?scope=self|all&limit=&offset=
 // member 只能看到自己的；admin 可用 scope=all 查看全部。
 readingRoutes.get('/', async (c) => {
@@ -95,8 +91,8 @@ readingRoutes.post('/', async (c) => {
   }
   const mode = body.mode;
   const spread = body.spread;
-  if (!validateReadingMode(mode)) return c.json({ error: { code: ERR.VALIDATION, message: 'mode 必须是 online 或 offline' } }, 400);
-  if (!validateSpreadId(spread)) return c.json({ error: { code: ERR.VALIDATION, message: '未知的牌阵' } }, 400);
+  if (!isReadingMode(mode)) return c.json({ error: { code: ERR.VALIDATION, message: 'mode 必须是 online 或 offline' } }, 400);
+  if (!isSpreadId(spread)) return c.json({ error: { code: ERR.VALIDATION, message: '未知的牌阵' } }, 400);
   const question = validateQuestion(body.question);
   if (!question) return c.json({ error: { code: ERR.VALIDATION, message: '问题不能为空且不超过 500 字' } }, 400);
   const cardsResult = validateCards(spread, body.cards);

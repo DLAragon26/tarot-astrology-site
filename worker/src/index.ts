@@ -5,7 +5,7 @@ import { adminRoutes } from './routes/admin';
 import { authRoutes } from './routes/auth';
 import { interpretRoutes } from './routes/interpret';
 import { readingRoutes } from './routes/readings';
-import { statsRoutes } from './routes/stats';
+import { statsRoutes, quotaRoutes } from './routes/stats';
 
 export type AppEnv = { Bindings: Env; Variables: { user: import('./auth').UserRow } };
 
@@ -59,9 +59,10 @@ app.route('/', authRoutes); // /api/login /api/logout /api/me /api/redeem
 // ---------- 登录后路由 ----------
 
 app.use('*', requireAuth);
-app.route('/', readingRoutes); // /api/readings
-app.route('/', interpretRoutes); // /api/interpret
-app.route('/', statsRoutes); // /api/stats /api/quota
+app.route('/readings', readingRoutes); // /api/readings, /api/readings/:id
+app.route('/interpret', interpretRoutes); // /api/interpret
+app.route('/stats', statsRoutes); // /api/stats
+app.route('/quota', quotaRoutes); // /api/quota
 
 // ---------- 管理员路由 ----------
 

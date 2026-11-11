@@ -90,7 +90,7 @@ describe('认证与未登录防护', () => {
   });
 
   it('logout 吊销会话', async () => {
-    const { adminCookie } = await setupAdmin();
+    const { adminCookie } = await setupAdmin(env, req);
     const res = await req('/api/logout', { method: 'POST', headers: { Cookie: adminCookie, ...ORIGIN } });
     expect(res.status).toBe(200);
     const me = await req('/api/me', { headers: { Cookie: adminCookie, ...ORIGIN } });
@@ -122,7 +122,7 @@ describe('CORS', () => {
 
 describe('记录权限与校验', () => {
   it('member 不能访问 admin 接口', async () => {
-    const { adminCookie } = await setupAdmin();
+    const { adminCookie } = await setupAdmin(env, req);
     await createMember(req, adminCookie, 'alice');
     const cookie = await loginMember(env, 'alice');
     for (const path of ['/api/admin/users', '/api/admin/stats', '/api/admin/invite-codes']) {
@@ -134,7 +134,7 @@ describe('记录权限与校验', () => {
   });
 
   it('非法牌阵/牌名/正逆位/空问题 → 400', async () => {
-    const { adminCookie } = await setupAdmin();
+    const { adminCookie } = await setupAdmin(env, req);
     await createMember(req, adminCookie, 'bob');
     const cookie = await loginMember(env, 'bob');
     const headers = jsonHeaders(cookie);
@@ -175,7 +175,7 @@ describe('记录权限与校验', () => {
   });
 
   it('member 不能读取/修改/删除他人记录（一律 404，不泄露存在性）', async () => {
-    const { adminCookie } = await setupAdmin();
+    const { adminCookie } = await setupAdmin(env, req);
     await createMember(req, adminCookie, 'carol');
     await createMember(req, adminCookie, 'dave');
     const carol = await loginMember(env, 'carol');
@@ -214,7 +214,7 @@ describe('记录权限与校验', () => {
   });
 
   it('member 用 scope=all 只能拿到自己的记录；admin 才能拿全站', async () => {
-    const { adminCookie } = await setupAdmin();
+    const { adminCookie } = await setupAdmin(env, req);
     await createMember(req, adminCookie, 'erin');
     const erin = await loginMember(env, 'erin');
     const res = await req('/api/readings?scope=all', { headers: { Cookie: erin, ...ORIGIN } });
@@ -228,7 +228,7 @@ describe('记录权限与校验', () => {
 
 describe('AI 额度', () => {
   it('member 额度耗尽 → 429 且不再调用 AI；admin 个人无上限', async () => {
-    const { adminCookie } = await setupAdmin();
+    const { adminCookie } = await setupAdmin(env, req);
     await createMember(req, adminCookie, 'frida', { daily_ai_limit: 2 });
     const frida = await loginMember(env, 'frida');
     const fetchMock = vi.mocked(globalThis.fetch);
@@ -275,34 +275,31 @@ describe('AI 额度', () => {
   });
 
   it('全站额度耗尽 → 429 QUOTA_GLOBAL_EXCEEDED（对 admin 同样生效）', async () => {
-    const { adminCookie } = await setupAdmin();
+    const { adminCookie } = await setupAdmin(env, req);
     await createMember(req, adminCookie, 'gina');
     const gina = await loginMember(env, 'gina');
-    const limited = makeEnv({ GLOBAL_DAILY_AI_LIMIT: '1' });
-    const lreq = appRequest(limited);
-    const llogin = await login(limited, { site_access_key: 'test-site-key', username: 'gina', password: MEMBER_PW });
+    // 全站上限读 settings 表（运行时配置），改为 1
+    await env.DB.prepare("UPDATE settings SET value = '1' WHERE key = 'global_daily_ai_limit'").run();
 
-    const r1 = await lreq('/api/interpret', {
+    const r1 = await req('/api/interpret', {
       method: 'POST',
-      headers: jsonHeaders(llogin.cookie),
+      headers: jsonHeaders(gina),
       body: JSON.stringify(THREE_CARDS_PAYLOAD),
     });
     expect(r1.status).toBe(200);
 
-    const adminL = await login(limited, ADMIN_LOGIN);
-    const r2 = await lreq('/api/interpret', {
+    const r2 = await req('/api/interpret', {
       method: 'POST',
-      headers: jsonHeaders(adminL.cookie),
+      headers: jsonHeaders(adminCookie),
       body: JSON.stringify(THREE_CARDS_PAYLOAD),
     });
     expect(r2.status).toBe(429);
     const body = (await r2.json()) as { error: { code: string } };
     expect(body.error.code).toBe('QUOTA_GLOBAL_EXCEEDED');
-    void gina;
   });
 
   it('AI 上游失败 → 502 明确错误，不输出伪装解读，且额度已退还', async () => {
-    const { adminCookie } = await setupAdmin();
+    const { adminCookie } = await setupAdmin(env, req);
     await createMember(req, adminCookie, 'henry', { daily_ai_limit: 1 });
     const henry = await loginMember(env, 'henry');
     vi.stubGlobal('fetch', vi.fn(async () => new Response('upstream exploded', { status: 500 })));
@@ -330,7 +327,7 @@ describe('AI 额度', () => {
   });
 
   it('quota 接口返回额度信息与 ISO 重置时间', async () => {
-    const { adminCookie } = await setupAdmin();
+    const { adminCookie } = await setupAdmin(env, req);
     await createMember(req, adminCookie, 'iris');
     const iris = await loginMember(env, 'iris');
     const res = await req('/api/quota', { headers: { Cookie: iris, ...ORIGIN } });
@@ -346,7 +343,7 @@ describe('AI 额度', () => {
 
 describe('邀请码闭环与管理员操作', () => {
   it('发码 → redeem → 登录 → 码变为已使用且不可复用', async () => {
-    const { adminCookie } = await setupAdmin();
+    const { adminCookie } = await setupAdmin(env, req);
     const created = await req('/api/admin/invite-codes', { method: 'POST', headers: jsonHeaders(adminCookie) });
     expect(created.status).toBe(201);
     const { invite_code } = (await created.json()) as { invite_code: { code: string } };
@@ -389,7 +386,7 @@ describe('邀请码闭环与管理员操作', () => {
   });
 
   it('redeem 拒绝错误站点密钥与弱密码', async () => {
-    const { adminCookie } = await setupAdmin();
+    const { adminCookie } = await setupAdmin(env, req);
     const created = await req('/api/admin/invite-codes', { method: 'POST', headers: jsonHeaders(adminCookie) });
     const { invite_code } = (await created.json()) as { invite_code: { code: string } };
 
@@ -409,7 +406,7 @@ describe('邀请码闭环与管理员操作', () => {
   });
 
   it('admin 调整额度、重置密码；不能停用自己', async () => {
-    const { adminCookie } = await setupAdmin();
+    const { adminCookie } = await setupAdmin(env, req);
     const { id } = await createMember(req, adminCookie, 'jack');
 
     const patched = await req(`/api/admin/users/${id}`, {
@@ -444,7 +441,7 @@ describe('邀请码闭环与管理员操作', () => {
   });
 
   it('admin stats 聚合全站数据', async () => {
-    const { adminCookie } = await setupAdmin();
+    const { adminCookie } = await setupAdmin(env, req);
     await createMember(req, adminCookie, 'kate');
     const kate = await loginMember(env, 'kate');
     await req('/api/readings', {
@@ -463,7 +460,7 @@ describe('邀请码闭环与管理员操作', () => {
 
 describe('统计接口', () => {
   it('member stats 覆盖 MVP 字段', async () => {
-    const { adminCookie } = await setupAdmin();
+    const { adminCookie } = await setupAdmin(env, req);
     await createMember(req, adminCookie, 'liam');
     const liam = await loginMember(env, 'liam');
     await req('/api/readings', {
@@ -488,7 +485,9 @@ describe('统计接口', () => {
     expect(stats.by_month).toHaveLength(12);
     expect(stats.by_mode[0]).toEqual({ key: 'online', count: 1 });
     expect(stats.by_spread[0]).toEqual({ key: 'three-card', count: 1 });
-    expect(stats.top_cards[0].card).toBe('rw-00-fool');
+    // 三张牌各出现一次，并列时顺序不确定：按集合断言
+    const cardIds = stats.top_cards.map((c) => c.card).sort();
+    expect(cardIds).toEqual(['rw-00-fool', 'rw-10-wheel-of-fortune', 'rw-19-sun']);
     expect(stats.orientations.upright).toBe(2);
     expect(stats.orientations.reversed).toBe(1);
   });

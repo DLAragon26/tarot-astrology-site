@@ -1,5 +1,5 @@
 import type { CountRow, ReadingStats, QuotaInfo } from '@tarot/shared';
-import { getCard } from '@tarot/shared';
+import { getCard, parseDrawnCardsJson } from '@tarot/shared';
 import { Hono } from 'hono';
 import type { UserRow } from '../auth';
 import type { Env } from '../env';
@@ -11,7 +11,7 @@ function pad(n: number): string {
   return String(n).padStart(2, '0');
 }
 
-/** 最近 12 个月（Asia/Shanghai，近似 +8h 修正）序列补齐 */
+/** 最近 12 个月（Asia/Shanghai）序列补齐 */
 function last12Months(now = new Date()): string[] {
   const months: string[] = [];
   const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -23,58 +23,60 @@ function last12Months(now = new Date()): string[] {
   return months.reverse();
 }
 
+/** ISO 时间 → Asia/Shanghai 月份 YYYY-MM */
+function shanghaiMonth(iso: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return '';
+  const d = new Date(t + 8 * 3600 * 1000);
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}`;
+}
+
+interface StatRow {
+  created_at: string;
+  mode: string;
+  spread: string;
+  topic_tag: string | null;
+  cards: string;
+}
+
+/**
+ * 统计在 JS 侧聚合：一次读取记录后在内存统计，不依赖各 SQLite 变体对 JSON 表函数
+ * 与 GROUP BY 绑定参数的行为差异（本地 node:sqlite 与 Cloudflare D1 必须一致）。
+ * 私人站点数据量小，全表读取足够；将来数据量增大可改为按时间窗分批。
+ */
 async function aggregateStats(DB: D1Database, userId: string | null): Promise<Omit<ReadingStats, 'scope'>> {
   const where = userId ? 'WHERE user_id = ?' : '';
-  const args = userId ? [userId] : [];
+  const rows = await DB.prepare(`SELECT created_at, mode, spread, topic_tag, cards FROM readings ${where}`)
+    .bind(...(userId ? [userId] : []))
+    .all<StatRow>();
+  const list = rows.results ?? [];
 
-  const totalRow = await DB.prepare(`SELECT COUNT(*) AS n FROM readings ${where}`)
-    .bind(...args)
-    .first<{ n: number }>();
+  const byMode = new Map<string, number>();
+  const bySpread = new Map<string, number>();
+  const byTopic = new Map<string, number>();
+  const byMonth = new Map<string, number>();
+  const byCard = new Map<string, number>();
+  let upright = 0;
+  let reversed = 0;
 
-  const byModeRows = await DB.prepare(
-    `SELECT mode AS key, COUNT(*) AS count FROM readings ${where} GROUP BY mode`
-  )
-    .bind(...args)
-    .all<CountRow>();
+  for (const r of list) {
+    byMode.set(r.mode, (byMode.get(r.mode) ?? 0) + 1);
+    bySpread.set(r.spread, (bySpread.get(r.spread) ?? 0) + 1);
+    if (r.topic_tag) byTopic.set(r.topic_tag, (byTopic.get(r.topic_tag) ?? 0) + 1);
+    const m = shanghaiMonth(r.created_at);
+    if (m) byMonth.set(m, (byMonth.get(m) ?? 0) + 1);
+    const cards = parseDrawnCardsJson(r.cards) ?? [];
+    for (const c of cards) {
+      byCard.set(c.card, (byCard.get(c.card) ?? 0) + 1);
+      if (c.orientation === 'upright') upright++;
+      else reversed++;
+    }
+  }
 
-  const bySpreadRows = await DB.prepare(
-    `SELECT spread AS key, COUNT(*) AS count FROM readings ${where} GROUP BY spread`
-  )
-    .bind(...args)
-    .all<CountRow>();
-
-  const byTopicSql = userId
-    ? `SELECT topic_tag AS key, COUNT(*) AS count FROM readings WHERE user_id = ? AND topic_tag IS NOT NULL GROUP BY topic_tag`
-    : `SELECT topic_tag AS key, COUNT(*) AS count FROM readings WHERE topic_tag IS NOT NULL GROUP BY topic_tag`;
-  const byTopicRows = await DB.prepare(byTopicSql)
-    .bind(...args)
-    .all<CountRow>();
-
-  const monthRows = await DB.prepare(
-    `SELECT strftime('%Y-%m', datetime(created_at, '+8 hours')) AS key, COUNT(*) AS count
-     FROM readings ${where ? where + ' AND' : 'WHERE'} created_at >= datetime('now', '-12 months')
-     GROUP BY key`
-  )
-    .bind(...args)
-    .all<CountRow>();
-
-  const cardRows = await DB.prepare(
-    `SELECT json_extract(je.value, '$.card') AS card, COUNT(*) AS count
-     FROM readings r, json_each(r.cards) je
-     ${userId ? 'WHERE r.user_id = ?' : ''}
-     GROUP BY card ORDER BY count DESC LIMIT 10`
-  )
-    .bind(...args)
-    .all<{ card: string; count: number }>();
-
-  const orientRows = await DB.prepare(
-    `SELECT json_extract(je.value, '$.orientation') AS key, COUNT(*) AS count
-     FROM readings r, json_each(r.cards) je
-     ${userId ? 'WHERE r.user_id = ?' : ''}
-     GROUP BY key`
-  )
-    .bind(...args)
-    .all<CountRow>();
+  const toSorted = (m: Map<string, number>): CountRow[] =>
+    [...m.entries()]
+      .map(([key, count]) => ({ key, count }))
+      .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
 
   const aiTotal = userId
     ? await getUserUsageTotal(DB, userId)
@@ -83,23 +85,18 @@ async function aggregateStats(DB: D1Database, userId: string | null): Promise<Om
       )?.t ?? 0);
 
   const months = last12Months();
-  const monthMap = new Map(monthRows.results.map((r) => [r.key, r.count]));
 
   return {
-    total: totalRow?.n ?? 0,
-    by_month: months.map((m) => ({ key: m, count: monthMap.get(m) ?? 0 })),
-    by_mode: byModeRows.results,
-    by_topic: byTopicRows.results,
-    by_spread: bySpreadRows.results,
-    top_cards: cardRows.results.map((r) => ({
-      card: r.card,
-      nameZh: getCard(r.card)?.nameZh ?? r.card,
-      count: r.count,
-    })),
-    orientations: {
-      upright: orientRows.results.find((r) => r.key === 'upright')?.count ?? 0,
-      reversed: orientRows.results.find((r) => r.key === 'reversed')?.count ?? 0,
-    },
+    total: list.length,
+    by_month: months.map((m) => ({ key: m, count: byMonth.get(m) ?? 0 })),
+    by_mode: toSorted(byMode),
+    by_topic: toSorted(byTopic),
+    by_spread: toSorted(bySpread),
+    top_cards: [...byCard.entries()]
+      .map(([card, count]) => ({ card, nameZh: getCard(card)?.nameZh ?? card, count }))
+      .sort((a, b) => b.count - a.count || a.card.localeCompare(b.card))
+      .slice(0, 10),
+    orientations: { upright, reversed },
     ai_used_total: aiTotal,
     ai_used_today: 0,
   };
@@ -110,15 +107,15 @@ statsRoutes.get('/', async (c) => {
   const user = c.get('user');
   const wantAll = c.req.query('scope') === 'all' && user.role === 'admin';
   const agg = await aggregateStats(c.env.DB, wantAll ? null : user.id);
-  const aiToday = wantAll
-    ? await getGlobalUsage(c.env.DB)
-    : await getUserUsage(c.env.DB, user.id);
+  const aiToday = wantAll ? await getGlobalUsage(c.env.DB) : await getUserUsage(c.env.DB, user.id);
   const stats: ReadingStats = { scope: wantAll ? 'all' : 'self', ...agg, ai_used_today: aiToday };
   return c.json({ stats });
 });
 
 // GET /api/quota
-statsRoutes.get('/quota', async (c) => {
+export const quotaRoutes = new Hono<{ Bindings: Env; Variables: { user: UserRow } }>();
+
+quotaRoutes.get('/', async (c) => {
   const user = c.get('user');
   const dailyLimit = await getUserDailyLimit(c.env.DB, user.daily_ai_limit);
   const usedToday = await getUserUsage(c.env.DB, user.id);

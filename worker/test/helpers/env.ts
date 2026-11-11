@@ -1,6 +1,6 @@
-import type { Env } from '../src/env';
-import app from '../src/index';
-import { createTestDb } from './helpers/minid1';
+import type { Env } from '../../src/env';
+import app from '../../src/index';
+import { createTestDb } from './minid1';
 
 export function makeEnv(overrides: Partial<Env> = {}): Env {
   return {
@@ -41,12 +41,13 @@ type Fetcher = (path: string, init?: RequestInit) => Promise<Response>;
 
 /** 所有请求共享同一个 env（同一个 D1 内存库） */
 export function appRequest(env: Env): Fetcher {
-  return (path, init = {}) => app.request(path, init, env);
+  return async (path, init = {}) => app.request(path, init, env);
 }
 
-export async function setupAdmin(): Promise<{ env: Env; req: Fetcher; adminCookie: string }> {
-  const env = makeEnv();
-  const req = appRequest(env);
+export async function setupAdmin(
+  env: Env = makeEnv(),
+  req: Fetcher = appRequest(env)
+): Promise<{ env: Env; req: Fetcher; adminCookie: string }> {
   const { res, cookie } = await login(env, ADMIN_LOGIN);
   if (res.status !== 200) throw new Error(`admin bootstrap failed: ${res.status}`);
   return { env, req, adminCookie: cookie };
