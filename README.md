@@ -83,9 +83,9 @@ npm run dev:worker
 
 | 变量 | 类型 | 用途 |
 | --- | --- | --- |
-| `API_BASE_URL` | Secret（推荐） | OpenAI-compatible 基址，如 `https://api.deepseek.com/v1` |
+| `API_BASE_URL` | **Secret**（必需） | OpenAI-compatible 基址，如 `https://api.deepseek.com/v1`；缺失时 AI 解读一律返回 502 |
 | `API_KEY` | **Secret** | AI 服务密钥；只存在于 Worker 环境 |
-| `MODEL_NAME` | Secret（推荐） | 模型名，如 `deepseek-chat` |
+| `MODEL_NAME` | **Secret**（必需） | 模型名，如 `deepseek-chat`；缺失时 AI 解读一律返回 502 |
 | `MAX_TOKENS` | 可选 | 单次解读输出上限，默认 900 |
 | `TEMPERATURE` | 可选 | 采样温度，默认 0.8 |
 | `SITE_ACCESS_KEY` | **Secret** | 登录三要素之一：站点访问密钥 |
@@ -105,7 +105,7 @@ npm run dev:worker
 - 全站每日上限默认 200 次（`settings` 表 `global_daily_ai_limit`，管理员接口可查）
 - 重置时刻：Asia/Shanghai 午夜
 - 每次解读按顺序检查：登录 → 角色 → 个人额度 → 全站额度 → 输入校验 → 才调用 AI
-- AI 失败时额度自动退还，返回明确错误，绝不输出伪装解读；未登录/额度耗尽时仍可查看牌名、位置与基础牌义
+- AI 失败时额度自动退还，返回明确错误，绝不输出伪装解读；额度耗尽时仍可查看已抽出的牌面、位置与基础牌义（未登录只能看到登录页）
 
 ## 切换 AI 供应商（如 DeepSeek → 其他 OpenAI-compatible）
 

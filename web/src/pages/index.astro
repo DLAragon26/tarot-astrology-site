@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import { SITE_BASE } from '../lib/api';
 ---
 
 <html lang="zh-CN">
@@ -8,6 +9,7 @@ import '../styles/global.css';
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="referrer" content="no-referrer" />
+    <link rel="icon" type="image/svg+xml" href={`${SITE_BASE}favicon.svg`} />
     <title>登录 · 塔罗与星座</title>
   </head>
   <body>

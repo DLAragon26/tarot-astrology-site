@@ -3,18 +3,26 @@ import type { Env } from './env';
 
 // AI 额度：按 Asia/Shanghai 午夜重置。
 // 用户限额：users.daily_ai_limit（NULL = 默认 20）；admin 无上限。
-// 全局限额：settings.global_daily_ai_limit（默认 200）。
+// 全局限额：settings.global_daily_ai_limit → env.GLOBAL_DAILY_AI_LIMIT → 常量 200。
 
 export async function getUserDailyLimit(DB: D1Database, dailyAiLimit: number | null): Promise<number> {
   if (typeof dailyAiLimit === 'number' && dailyAiLimit >= 0) return dailyAiLimit;
   return DEFAULT_DAILY_AI_LIMIT;
 }
 
-export async function getGlobalDailyLimit(DB: D1Database): Promise<number> {
+/**
+ * 全站每日 AI 上限，优先级：settings 表 > env.GLOBAL_DAILY_AI_LIMIT > 常量 200。
+ * settings 由部署后在 D1 里调整（运行时配置）；env 是部署配置的回落。
+ */
+export async function getGlobalDailyLimit(DB: D1Database, env?: Env): Promise<number> {
   const row = await DB.prepare("SELECT value FROM settings WHERE key = 'global_daily_ai_limit'").first<{ value: string }>();
   if (row) {
     const n = Number(row.value);
     if (Number.isFinite(n) && n >= 0) return n;
+  }
+  if (env?.GLOBAL_DAILY_AI_LIMIT !== undefined && env.GLOBAL_DAILY_AI_LIMIT !== '') {
+    const fromEnv = Number(env.GLOBAL_DAILY_AI_LIMIT);
+    if (Number.isFinite(fromEnv) && fromEnv >= 0) return fromEnv;
   }
   return FALLBACK_GLOBAL_DAILY_AI_LIMIT;
 }

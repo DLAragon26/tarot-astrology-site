@@ -208,7 +208,7 @@ adminRoutes.get('/invite-codes', async (c) => {
 adminRoutes.get('/stats', async (c) => {
   const today = shanghaiDate();
   const totalRow = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM readings').first<{ n: number }>();
-  const globalLimit = await getGlobalDailyLimit(c.env.DB);
+  const globalLimit = await getGlobalDailyLimit(c.env.DB, c.env);
   const globalUsed = await getGlobalUsage(c.env.DB);
 
   const userRows = await c.env.DB.prepare(

@@ -34,7 +34,7 @@ interpretRoutes.post('/', async (c) => {
   const isAdmin = user.role === 'admin';
   const today = new Date();
   const dailyLimit = await getUserDailyLimit(c.env.DB, user.daily_ai_limit);
-  const globalLimit = await getGlobalDailyLimit(c.env.DB);
+  const globalLimit = await getGlobalDailyLimit(c.env.DB, c.env);
 
   // 个人额度（admin 无上限）
   let usedToday = 0;

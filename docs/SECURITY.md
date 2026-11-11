@@ -10,6 +10,8 @@
 | 名称 | 存放位置 | 说明 |
 | --- | --- | --- |
 | `API_KEY` | Cloudflare Secret | AI 服务密钥；前端永不接触 |
+| `API_BASE_URL` | Cloudflare Secret（**必需**） | AI 服务基址（如 `https://api.deepseek.com/v1`）；缺失时解读一律 502 |
+| `MODEL_NAME` | Cloudflare Secret（**必需**） | 模型名（如 `deepseek-chat`）；缺失时解读一律 502 |
 | `SITE_ACCESS_KEY` | Cloudflare Secret | 登录三要素之一 |
 | `SESSION_SECRET` | Cloudflare Secret | session cookie 的 HMAC 签名 |
 | `ADMIN_INITIAL_PASSWORD` | Cloudflare Secret | 仅首次引导；创建管理员后建议删除 |

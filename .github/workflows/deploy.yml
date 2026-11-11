@@ -31,6 +31,22 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Guard — require real site variables (fail on placeholders)
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          PUBLIC_API_BASE_URL: ${{ vars.PUBLIC_API_BASE_URL }}
+        run: |
+          fail=0
+          if [ -z "$PUBLIC_API_BASE_URL" ] || echo "$PUBLIC_API_BASE_URL" | grep -qiE 'REPLACE_WITH|USERNAME\.github\.io'; then
+            echo "::error::Repository Variable PUBLIC_API_BASE_URL 缺失或仍是占位符。请在 Settings → Secrets and variables → Actions → Variables 配置你的 Worker 地址。"
+            fail=1
+          fi
+          if [ -z "$SITE_URL" ] || echo "$SITE_URL" | grep -qiE 'USERNAME\.github\.io'; then
+            echo "::error::Repository Variable SITE_URL 缺失或仍是占位符。请配置为 https://<username>.github.io。"
+            fail=1
+          fi
+          exit $fail
+
       - name: Install dependencies (workspaces)
         run: npm ci
 

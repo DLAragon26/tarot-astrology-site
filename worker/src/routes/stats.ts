@@ -119,7 +119,7 @@ quotaRoutes.get('/', async (c) => {
   const user = c.get('user');
   const dailyLimit = await getUserDailyLimit(c.env.DB, user.daily_ai_limit);
   const usedToday = await getUserUsage(c.env.DB, user.id);
-  const globalLimit = await getGlobalDailyLimit(c.env.DB);
+  const globalLimit = await getGlobalDailyLimit(c.env.DB, c.env);
   const globalUsed = await getGlobalUsage(c.env.DB);
   const quota: QuotaInfo = {
     daily_limit: user.role === 'admin' ? -1 : dailyLimit,

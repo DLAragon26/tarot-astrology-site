@@ -28,6 +28,8 @@ D1 里只有表结构和 `settings` 基础配置（全站额度默认 200），�
 ```bash
 cd worker
 npx wrangler secret put API_KEY              # AI 服务密钥
+npx wrangler secret put API_BASE_URL         # AI 服务基址，如 https://api.deepseek.com/v1（必需，缺失则解读一律 502）
+npx wrangler secret put MODEL_NAME           # 模型名，如 deepseek-chat（必需）
 npx wrangler secret put SITE_ACCESS_KEY      # 站点访问密钥（自定一个强随机串）
 npx wrangler secret put SESSION_SECRET       # 随机长字符串
 npx wrangler secret put ADMIN_INITIAL_PASSWORD  # 首次引导用，创建 admin 后可删除此 secret
@@ -41,7 +43,8 @@ npx wrangler secret put ADMIN_INITIAL_PASSWORD  # 首次引导用，创建 admin
 ## 3. 部署 Worker
 
 ```bash
-npm run deploy   # 在 worker/ 目录执行 npx wrangler deploy
+cd worker
+npm run deploy   # 即 npx wrangler deploy
 ```
 
 记下输出的地址，如 `https://tarot-astrology-api.<你的子域>.workers.dev`。

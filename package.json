@@ -19,6 +19,7 @@
     "dev:worker": "npm run dev --workspace @tarot/worker",
     "db:migrate:local": "npm run db:migrate:local --workspace @tarot/worker",
     "db:migrate:remote": "npm run db:migrate:remote --workspace @tarot/worker",
+    "deploy": "npm run deploy --workspace @tarot/worker",
     "assets:gen": "node scripts/gen-placeholders.mjs && node scripts/gen-zodiac-svgs.mjs",
     "cards:assets": "node scripts/gen-card-assets.mjs",
     "cards:assets:check": "node scripts/gen-card-assets.mjs --check",
