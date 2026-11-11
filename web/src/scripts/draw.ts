@@ -34,20 +34,32 @@ mountSpreadPicker(document.getElementById('spread-picker') as HTMLDivElement, (i
   resultArea.hidden = true;
 });
 
-// 额度提示
-api<{ quota: QuotaInfo }>('/api/quota')
-  .then(({ quota }) => {
+// 额度提示（成功/失败解读后都会刷新）
+async function loadQuota(): Promise<void> {
+  try {
+    const { quota } = await api<{ quota: QuotaInfo }>('/api/quota');
     quotaLine.textContent =
       quota.daily_limit === -1
         ? `管理员账号 · AI 解读无个人上限 · 今日全站 ${quota.global_used_today}/${quota.global_limit} · 每日午夜（Asia/Shanghai）重置`
         : `今日 AI 解读额度：已用 ${quota.used_today}/${quota.daily_limit} · 全站 ${quota.global_used_today}/${quota.global_limit} · 每日午夜（Asia/Shanghai）重置`;
+  } catch {
+    /* 静默：额度行不是关键路径 */
+  }
+}
+void loadQuota();
+
+// 首次引导登录后的改密提示：文案按角色区分（管理员自己改，成员找管理员）
+api<{ user: { role: string; must_change_password: boolean } }>('/api/me')
+  .then(({ user }) => {
+    if (user.must_change_password) {
+      mustChange.textContent =
+        user.role === 'admin'
+          ? '你正在使用初始密码。请在「管理」页重置自己的密码。'
+          : '你正在使用初始密码。请联系管理员为你重置密码。';
+      mustChange.hidden = false;
+    }
   })
   .catch(() => {});
-
-if (sessionStorage.getItem('must_change_password')) {
-  mustChange.hidden = false;
-  sessionStorage.removeItem('must_change_password');
-}
 
 function getQuestion(): string | null {
   const q = (document.getElementById('question') as HTMLTextAreaElement).value.trim();
@@ -89,6 +101,7 @@ document.getElementById('interpret-btn')?.addEventListener('click', (e) => {
       interpretText.textContent = text;
       interpretOut.hidden = false;
     }
+    void loadQuota(); // 成功或失败都刷新额度行
   });
 });
 

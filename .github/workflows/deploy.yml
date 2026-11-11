@@ -42,6 +42,14 @@ jobs:
           PUBLIC_API_BASE_URL: ${{ vars.PUBLIC_API_BASE_URL || 'https://tarot-astrology-api.REPLACE_WITH_YOUR_WORKERS_SUBDOMAIN.workers.dev' }}
         run: npm run build
 
+      - name: Check subpath links (fail on broken base URLs)
+        env:
+          PUBLIC_BASE_PATH: ${{ vars.PUBLIC_BASE_PATH || '/tarot-astrology-site' }}
+        run: node scripts/check-base-links.mjs
+
+      - name: Verify card asset manifest
+        run: node scripts/gen-card-assets.mjs --check
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

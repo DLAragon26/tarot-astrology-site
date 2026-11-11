@@ -1,8 +1,18 @@
 // 前端 API 封装。API 地址是公开值；所有密钥只在后端。
 // 401 统一跳回登录页 —— 权限判断永远以后端为准，前端只做引导。
+import cardAssets from '../assets/card-assets.json';
 
 const API_BASE = (import.meta.env.PUBLIC_API_BASE_URL ?? 'http://localhost:8787').replace(/\/+$/, '');
-const SITE_BASE = import.meta.env.BASE_URL || '/';
+
+/**
+ * 站点基础路径，统一归一化为「以 / 结尾」。
+ * Astro 的 `import.meta.env.BASE_URL` 是 base 配置原样字符串（子路径部署时为
+ * `/tarot-astrology-site`，结尾没有斜杠），直接拼 `${base}draw` 会得到
+ * `/tarot-astrology-sitedraw`。全站只在这里归一化一次，其他文件一律 import。
+ */
+export const SITE_BASE = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '') + '/';
+
+const WEBP_CARDS = new Set<string>(Array.isArray(cardAssets?.webp) ? (cardAssets.webp as string[]) : []);
 
 export interface ApiErrorBody {
   error: {
@@ -51,14 +61,13 @@ export async function api<T = unknown>(path: string, init: RequestInit = {}, opt
   return body as T;
 }
 
-export { API_BASE, SITE_BASE };
+export { API_BASE };
 
-/** 图片路径：优先 WebP，加载失败回退占位 SVG */
+/** 图片路径：清单内有 WebP 才请求 WebP，否则直接给占位 SVG（首帧不打 404） */
 export function cardImageSrc(cardId: string): { src: string; fallback: string } {
-  return {
-    src: `${SITE_BASE}cards/${cardId}.webp`,
-    fallback: `${SITE_BASE}cards/placeholders/${cardId}.svg`,
-  };
+  const fallback = `${SITE_BASE}cards/placeholders/${cardId}.svg`;
+  const src = WEBP_CARDS.has(cardId) ? `${SITE_BASE}cards/${cardId}.webp` : fallback;
+  return { src, fallback };
 }
 
 export function attachImageFallback(img: HTMLImageElement, fallback: string): void {

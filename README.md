@@ -51,6 +51,8 @@ npm run dev:worker
 | `npm run check` | TypeScript 类型检查 + astro check + secret-scan |
 | `npm test` | vitest：领域校验、额度、权限、记录归属、prompt、Worker API 集成 |
 | `npm run build` | 前端静态构建到 `web/dist` |
+| `npm run build:pages` | 按 GitHub Pages 子路径形态构建（`PUBLIC_BASE_PATH=/tarot-astrology-site`）；本地预览需先起 Worker，或显式传 `PUBLIC_API_BASE_URL` 指向你的 API 地址 |
+| `npm run check:base` | 子路径断链自检（配合 `build:pages` 使用；CI 在 build 之后、上传之前跑） |
 | `npm run smoke` | 本地端到端冒烟：自动起 AI stub + wrangler dev，跑 29 条断言（登录/额度/CRUD/越权/邀请码） |
 | `npm run cards:download` | 从 Wikimedia Commons 下载 78 张牌图并压成 WebP |
 | `npm run cards:verify` | 校验 78 个 WebP 是否齐全 |

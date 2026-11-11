@@ -1,4 +1,4 @@
-import { ApiError, api, redirectToLogin } from '../lib/api';
+import { ApiError, api, redirectToLogin, SITE_BASE } from '../lib/api';
 
 interface AuthUser {
   user: { username: string; role: string; must_change_password: boolean };
@@ -29,7 +29,7 @@ async function busy<T>(btnId: string, fn: () => Promise<T>): Promise<T | undefin
 // 已登录直接进入
 try {
   await api<AuthUser>('/api/me', {}, { redirectOn401: false });
-  location.href = `${import.meta.env.BASE_URL}draw`;
+  location.href = `${SITE_BASE}draw`;
 } catch {
   /* 未登录，停留登录页 */
 }
@@ -53,11 +53,8 @@ document.getElementById('login-form')?.addEventListener('submit', (e) => {
           password: get('password'),
         }),
       });
-      if (res.user.must_change_password) {
-        // 引导密码登录成功：先进入，再在抽牌页提示改密
-        sessionStorage.setItem('must_change_password', '1');
-      }
-      location.href = `${import.meta.env.BASE_URL}draw`;
+      void res;
+      location.href = `${SITE_BASE}draw`;
     } catch (err) {
       show('login-error', err instanceof ApiError ? err.message : '登录失败，请稍后重试');
     }
@@ -80,7 +77,7 @@ document.getElementById('redeem-form')?.addEventListener('submit', (e) => {
     }),
   })
     .then(() => {
-      location.href = `${import.meta.env.BASE_URL}draw`;
+      location.href = `${SITE_BASE}draw`;
     })
     .catch((err) => {
       show('redeem-error', err instanceof ApiError ? err.message : '激活失败，请稍后重试');

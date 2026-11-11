@@ -1,6 +1,6 @@
 import { ZODIAC_SIGNS } from '@tarot/shared';
 import type { ZodiacSign } from '@tarot/shared';
-import { el } from '../lib/api';
+import { el, SITE_BASE } from '../lib/api';
 
 const grid = document.getElementById('grid') as HTMLDivElement;
 const detail = document.getElementById('detail') as HTMLDivElement;
@@ -29,7 +29,7 @@ for (const sign of ZODIAC_SIGNS) {
   btn.type = 'button';
   btn.dataset.key = sign.key;
   const img = document.createElement('img');
-  img.src = `${import.meta.env.BASE_URL}zodiac/${sign.key}.svg`;
+  img.src = `${SITE_BASE}zodiac/${sign.key}.svg`;
   img.alt = sign.nameZh;
   btn.appendChild(img);
   btn.appendChild(el('span', undefined, sign.nameZh));

@@ -1,6 +1,6 @@
 import { ALL_CARDS, getCard, getSpread, SPREAD_IDS, TOPIC_TAGS, MOOD_TAGS } from '@tarot/shared';
 import type { DrawnCard, InterpretResponse, Reading, ReadingMode, SpreadId } from '@tarot/shared';
-import { ApiError, api, attachImageFallback, cardImageSrc, el } from '../lib/api';
+import { ApiError, api, attachImageFallback, cardImageSrc, el, SITE_BASE } from '../lib/api';
 
 // 抽牌 / 线下录入共用的核心交互：洗牌、翻牌、AI 解读、保存。
 
@@ -53,7 +53,7 @@ export function renderSpreadArea(
     const flip = el('div', 'flip');
     const backFace = el('div', 'face');
     const backImg = document.createElement('img');
-    backImg.src = `${import.meta.env.BASE_URL}cards/card-back.svg`;
+    backImg.src = `${SITE_BASE}cards/card-back.svg`;
     backImg.alt = '牌背';
     backFace.appendChild(backImg);
     const frontFace = el('div', 'face back-face');
@@ -61,7 +61,9 @@ export function renderSpreadArea(
     const srcs = cardImageSrc(drawn.card);
     frontImg.src = srcs.src;
     frontImg.alt = card ? `${card.nameZh}` : drawn.card;
-    frontImg.loading = 'lazy';
+    // 牌面在翻转容器里初始不可见（backface-visibility:hidden），lazy 会被判"不可见"而永不触发加载；
+    // 一屏最多 5 张，直接 eager。
+    frontImg.loading = 'eager';
     attachImageFallback(frontImg, srcs.fallback);
     frontFace.appendChild(frontImg);
     flip.appendChild(backFace);
