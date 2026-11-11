@@ -1,0 +1,82 @@
+// 前端 API 封装。API 地址是公开值；所有密钥只在后端。
+// 401 统一跳回登录页 —— 权限判断永远以后端为准，前端只做引导。
+
+const API_BASE = (import.meta.env.PUBLIC_API_BASE_URL ?? 'http://localhost:8787').replace(/\/+$/, '');
+const SITE_BASE = import.meta.env.BASE_URL || '/';
+
+export interface ApiErrorBody {
+  error: {
+    code: string;
+    message: string;
+    detail?: string;
+  };
+}
+
+export class ApiError extends Error {
+  code: string;
+  status: number;
+  detail?: string;
+  constructor(status: number, code: string, message: string, detail?: string) {
+    super(message);
+    this.status = status;
+    this.code = code;
+    this.detail = detail;
+  }
+}
+
+export function redirectToLogin(): void {
+  location.href = `${SITE_BASE}`;
+}
+
+export async function api<T = unknown>(path: string, init: RequestInit = {}, opts: { redirectOn401?: boolean } = {}): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...(init.headers ?? {}) },
+    ...init,
+  });
+  if (res.status === 401 && opts.redirectOn401 !== false) {
+    redirectToLogin();
+    throw new ApiError(401, 'UNAUTHENTICATED', '请先登录');
+  }
+  let body: unknown = null;
+  try {
+    body = await res.json();
+  } catch {
+    /* 空响应 */
+  }
+  if (!res.ok) {
+    const err = (body as ApiErrorBody)?.error;
+    throw new ApiError(res.status, err?.code ?? 'UNKNOWN', err?.message ?? `请求失败（${res.status}）`, err?.detail);
+  }
+  return body as T;
+}
+
+export { API_BASE, SITE_BASE };
+
+/** 图片路径：优先 WebP，加载失败回退占位 SVG */
+export function cardImageSrc(cardId: string): { src: string; fallback: string } {
+  return {
+    src: `${SITE_BASE}cards/${cardId}.webp`,
+    fallback: `${SITE_BASE}cards/placeholders/${cardId}.svg`,
+  };
+}
+
+export function attachImageFallback(img: HTMLImageElement, fallback: string): void {
+  img.addEventListener('error', () => {
+    if (img.src !== fallback && !img.src.endsWith(fallback)) img.src = fallback;
+  });
+}
+
+export function fmtDate(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(
+    d.getHours()
+  ).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+export function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}

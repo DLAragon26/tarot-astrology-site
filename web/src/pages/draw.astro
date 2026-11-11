@@ -1,0 +1,49 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="线上抽牌 · 塔罗与星座" active="draw">
+  <div id="quota-line" class="muted"></div>
+  <div id="must-change" class="notice" hidden>你正在使用初始密码。请尽快请管理员为你重置密码，此提示会在改密后消失。</div>
+
+  <h1>线上抽牌</h1>
+  <p class="muted">静下心来，想清楚你想问的事情，再开始。</p>
+
+  <label class="field" for="question">你想问什么</label>
+  <textarea id="question" maxlength="500" placeholder="例如：最近的工作状态如何？"></textarea>
+
+  <div style="display:flex; gap:12px; flex-wrap:wrap;">
+    <div style="flex:1; min-width:140px;">
+      <label class="field" for="topic">主题标签（可选）</label>
+      <select id="topic"></select>
+    </div>
+    <div style="flex:1; min-width:140px;">
+      <label class="field" for="mood">心情标签（可选）</label>
+      <select id="mood"></select>
+    </div>
+  </div>
+
+  <h2>选择牌阵</h2>
+  <div id="spread-picker"></div>
+
+  <div id="action-area" hidden>
+    <button class="btn accent" id="draw-btn" type="button">洗牌 · 抽牌</button>
+  </div>
+
+  <div id="spread-area"></div>
+
+  <div id="result-area" hidden>
+    <button class="btn" id="interpret-btn" type="button">请求 AI 解读</button>
+    <div id="interpret-err" class="notice error" hidden></div>
+    <div id="interpret-out" hidden>
+      <div class="panel"><p id="interpret-text"></p></div>
+      <p class="muted">解读基于心理反思与象征视角，不构成对未来的断言；医疗、投资、法律决定请咨询专业人士。</p>
+    </div>
+    <button class="btn secondary" id="save-btn" type="button">保存记录</button>
+    <div id="save-msg" class="notice" hidden></div>
+  </div>
+</Base>
+
+<script>
+  import './draw';
+</script>

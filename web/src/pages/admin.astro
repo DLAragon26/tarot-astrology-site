@@ -1,0 +1,43 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="管理 · 塔罗与星座" active="admin">
+  <h1>管理</h1>
+  <p class="muted">仅管理员可用。成员访问本页的接口会被后端拒绝（403）。</p>
+  <div id="denied" class="notice error" hidden>你不是管理员，或登录已过期。</div>
+
+  <div id="content" hidden>
+    <h2>全站概况</h2>
+    <div id="overview" class="muted">加载中…</div>
+
+    <h2>创建用户</h2>
+    <div class="panel">
+      <div style="display:flex; gap:12px; flex-wrap:wrap;">
+        <div style="flex:1; min-width:140px;"><label class="field" for="nu-username">用户名</label><input type="text" id="nu-username" /></div>
+        <div style="flex:1; min-width:140px;"><label class="field" for="nu-password">初始密码（至少 8 位）</label><input type="text" id="nu-password" /></div>
+        <div style="flex:1; min-width:120px;">
+          <label class="field" for="nu-role">角色</label>
+          <select id="nu-role"><option value="member">成员</option><option value="admin">管理员</option></select>
+        </div>
+        <div style="flex:1; min-width:120px;"><label class="field" for="nu-limit">每日 AI 额度（留空默认 20）</label><input type="text" id="nu-limit" placeholder="20" /></div>
+      </div>
+      <button class="btn" id="nu-submit" type="button">创建用户</button>
+      <div id="nu-msg" class="notice" hidden></div>
+    </div>
+
+    <h2>邀请码</h2>
+    <div class="panel">
+      <button class="btn accent" id="invite-btn" type="button">生成一次性邀请码</button>
+      <div id="invite-new" class="notice" hidden></div>
+      <div id="invite-list"></div>
+    </div>
+
+    <h2>用户管理</h2>
+    <div id="user-table"></div>
+  </div>
+</Base>
+
+<script>
+  import './admin';
+</script>

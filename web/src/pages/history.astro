@@ -1,0 +1,29 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="历史记录 · 塔罗与星座" active="history">
+  <h1>历史记录</h1>
+  <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;">
+    <div style="flex:1; min-width:140px;">
+      <label class="field" for="filter-mode">模式</label>
+      <select id="filter-mode">
+        <option value="">全部</option>
+        <option value="online">线上抽牌</option>
+        <option value="offline">线下录入</option>
+      </select>
+    </div>
+    <div style="flex:1; min-width:140px;">
+      <label class="field" for="filter-topic">主题</label>
+      <select id="filter-topic"><option value="">全部</option></select>
+    </div>
+  </div>
+  <div id="list"></div>
+  <div id="empty" class="muted" hidden style="margin-top:32px;">还没有记录。</div>
+  <button class="btn secondary" id="more-btn" hidden type="button">加载更多</button>
+  <div id="err" class="notice error" hidden></div>
+</Base>
+
+<script>
+  import './history';
+</script>

@@ -1,0 +1,53 @@
+name: Deploy to GitHub Pages
+
+# 部署前把本文件中的两处占位替换为你的实际值：
+#   1) SITE_URL：https://<username>.github.io
+#   2) PUBLIC_BASE_PATH：/<repo-name>
+# API 地址占位 PUBLIC_API_BASE_URL 替换为你的 Worker 地址（公开值，非密钥）。
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build static site
+        working-directory: web
+        env:
+          SITE_URL: https://USERNAME.github.io
+          PUBLIC_BASE_PATH: /tarot-astrology-site
+          PUBLIC_API_BASE_URL: https://tarot-astrology-api.REPLACE_WITH_YOUR_WORKERS_SUBDOMAIN.workers.dev
+        run: npm run build
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

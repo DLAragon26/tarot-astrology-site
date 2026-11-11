@@ -1,0 +1,14 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="星座 · 塔罗与星座" active="zodiac">
+  <h1>太阳星座</h1>
+  <p class="muted">基础参考内容，帮助你从占星符号的角度做自我观察。本页为静态内容，不调用 AI，不做实时星盘。</p>
+  <div class="zodiac-grid" id="grid"></div>
+  <div id="detail"></div>
+</Base>
+
+<script>
+  import './zodiac';
+</script>

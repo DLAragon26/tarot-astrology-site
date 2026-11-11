@@ -1,0 +1,85 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  showNav?: boolean;
+  active?: string;
+}
+
+const { title, showNav = true, active = '' } = Astro.props;
+const base = import.meta.env.BASE_URL || '/';
+
+const links = [
+  { href: 'draw', label: '抽牌' },
+  { href: 'offline', label: '线下录入' },
+  { href: 'history', label: '历史' },
+  { href: 'stats', label: '统计' },
+  { href: 'zodiac', label: '星座' },
+  { href: 'admin', label: '管理' },
+];
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="referrer" content="no-referrer" />
+    <title>{title}</title>
+  </head>
+  <body>
+    {
+      showNav && (
+        <header class="site">
+          <div class="inner">
+            <a class="brand" href={`${base}draw`}>
+              塔罗 · 星座
+            </a>
+            <nav class="links">
+              {links.map((l) => (
+                <a href={`${base}${l.href}`} class={l.href === active ? 'active' : ''}>
+                  {l.label}
+                </a>
+              ))}
+            </nav>
+            <span class="user-chip" id="user-chip"></span>
+            <button class="linklike" id="logout-btn" type="button" hidden>
+              退出
+            </button>
+          </div>
+        </header>
+      )
+    }
+    <main>
+      <slot />
+    </main>
+    {
+      showNav && (
+        <script>
+          import { api, redirectToLogin } from '../lib/api';
+          (async () => {
+            const chip = document.getElementById('user-chip');
+            const btn = document.getElementById('logout-btn') as HTMLButtonElement | null;
+            try {
+              const me = await api<{ user: { username: string; role: string } }>('/api/me');
+              if (chip) chip.textContent = `${me.user.username}${me.user.role === 'admin' ? ' · 管理员' : ''}`;
+              if (btn) btn.hidden = false;
+            } catch {
+              return; // api 已跳转登录页
+            }
+            btn?.addEventListener('click', async () => {
+              try {
+                await api('/api/logout', { method: 'POST' });
+              } catch {
+                /* 忽略 */
+              }
+              redirectToLogin();
+            });
+          })();
+        </script>
+      )
+    }
+  </body>
+</html>

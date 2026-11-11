@@ -1,0 +1,34 @@
+{
+  "name": "tarot-astrology-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "web",
+    "worker",
+    "shared"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspace @tarot/shared && npm run typecheck --workspace @tarot/worker && npm run typecheck --workspace @tarot/web",
+    "astrocheck": "npm run check --workspace @tarot/web",
+    "secret-scan": "node scripts/secret-scan.mjs",
+    "check": "npm run typecheck && npm run astrocheck && npm run secret-scan",
+    "test": "vitest run",
+    "build": "npm run build --workspace @tarot/web",
+    "dev:web": "npm run dev --workspace @tarot/web",
+    "dev:worker": "npm run dev --workspace @tarot/worker",
+    "db:migrate:local": "npm run db:migrate:local --workspace @tarot/worker",
+    "db:migrate:remote": "npm run db:migrate:remote --workspace @tarot/worker",
+    "assets:gen": "node scripts/gen-placeholders.mjs && node scripts/gen-zodiac-svgs.mjs",
+    "cards:download": "node scripts/download-cards.mjs",
+    "cards:verify": "node scripts/download-cards.mjs --verify"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  },
+  "optionalDependencies": {
+    "sharp": "^0.33.5"
+  }
+}

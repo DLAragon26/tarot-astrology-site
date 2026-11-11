@@ -1,0 +1,109 @@
+# 部署手册
+
+从零到线上：Cloudflare Worker + D1 → GitHub Pages。全程不需要在仓库中放任何密钥。
+
+## 0. 前置
+
+- Cloudflare 账号（免费版即可）
+- GitHub 账号
+- 本地已装 Node ≥ 22、`npx wrangler`（本仓库 devDependencies 已含 wrangler）
+
+## 1. Cloudflare D1
+
+```bash
+cd worker
+npx wrangler d1 create tarot-astrology
+```
+
+把输出的 `database_id` 填入 `worker/wrangler.toml`（这是资源 ID，不是密钥）。然后建表：
+
+```bash
+npx wrangler d1 migrations apply tarot-astrology --remote
+```
+
+D1 里只有表结构和 `settings` 基础配置（全站额度默认 200），没有任何用户数据。
+
+## 2. 配置 Secrets
+
+```bash
+cd worker
+npx wrangler secret put API_KEY              # AI 服务密钥
+npx wrangler secret put SITE_ACCESS_KEY      # 站点访问密钥（自定一个强随机串）
+npx wrangler secret put SESSION_SECRET       # 随机长字符串
+npx wrangler secret put ADMIN_INITIAL_PASSWORD  # 首次引导用，创建 admin 后可删除此 secret
+```
+
+`wrangler.toml` 的 `[vars]` 里改两处非敏感值：
+
+- `ALLOWED_ORIGINS`：加你的 Pages 域名，如 `https://USERNAME.github.io`（逗号分隔多个）
+- `GLOBAL_DAILY_AI_LIMIT`：全站每日 AI 上限，默认 200
+
+## 3. 部署 Worker
+
+```bash
+npm run deploy   # 在 worker/ 目录执行 npx wrangler deploy
+```
+
+记下输出的地址，如 `https://tarot-astrology-api.<你的子域>.workers.dev`。
+
+## 4. 初始化管理员
+
+用 curl 或浏览器确认 Worker 活着：
+
+```bash
+curl https://<worker地址>/api/health   # {"ok":true}
+```
+
+此时 `users` 表为空。打开前端登录页（或 curl POST /api/login），输入：
+
+- 站点访问密钥 = `SITE_ACCESS_KEY`
+- 用户名 = `admin`
+- 密码 = `ADMIN_INITIAL_PASSWORD`
+
+系统创建首个管理员（`must_change_password=true`）。之后：
+
+1. 用 `PATCH /api/admin/users/<admin_id>` 的 `new_password` 或让管理员账号尽快改密；
+2. 改密后可 `wrangler secret delete ADMIN_INITIAL_PASSWORD`。
+
+## 5. 创建用户 / 邀请码
+
+两种方式（详见 [ADMIN_GUIDE.md](ADMIN_GUIDE.md)）：
+
+- 管理页直接创建用户（用户名 + 初始密码）
+- 管理页生成一次性邀请码发给受邀人，对方在登录页「使用邀请码激活账号」自设密码
+
+## 6. GitHub Pages
+
+1. 把仓库推到 GitHub（public / private 均可；Pages Actions 部署对 private 仓库需 Pro）。
+2. 编辑 `.github/workflows/deploy.yml`，替换三处占位：
+   - `SITE_URL: https://USERNAME.github.io` → 你的用户名
+   - `PUBLIC_BASE_PATH: /tarot-astrology-site` → 你的仓库名
+   - `PUBLIC_API_BASE_URL` → 第 3 步的 Worker 地址（公开值，可入仓库）
+3. GitHub 仓库 Settings → Pages → Build and deployment → Source 选 **GitHub Actions**。
+4. push 到 `main` 触发部署；Actions 全绿后访问 `https://USERNAME.github.io/<repo>/`。
+5. 回到 Worker 配置，确认 `ALLOWED_ORIGINS` 包含该域名（否则浏览器会被 CORS 拒绝）。
+
+## 7. 牌面图像（可选但推荐）
+
+仓库内已含极简占位 SVG，无网络也能跑。下载真实 Rider-Waite 图：
+
+```bash
+npm run cards:download   # Wikimedia Commons 公有领域，压成 WebP
+npm run cards:verify     # 校验 78 张齐全
+git add web/public/cards && git commit -m "assets: rider-waite webp"
+```
+
+## 8. 验证清单
+
+- [ ] 未登录打开任何页面 → 只见登录页
+- [ ] 登录需要站点访问密钥 + 用户名 + 密码
+- [ ] 抽牌 → AI 解读 → 保存 → 历史可见
+- [ ] 成员看不到「管理」入口；直接调 `/api/admin/*` 返回 403
+- [ ] 额度耗尽时 AI 解读返回明确原因（429）
+- [ ] `npm run check`、`npm test`、`npm run build` 全绿
+
+## 9. 常见问题
+
+- **CORS 报错**：`ALLOWED_ORIGINS` 没包含 Pages 域名，或带末尾斜杠不一致（配置不带斜杠）。
+- **401 循环跳登录**：cookie 被浏览器丢弃 —— 生产环境 `COOKIE_SECURE` 必须为 true 且站点是 HTTPS（Pages 天然满足）；本地调试用 `.dev.vars` 里 `COOKIE_SECURE=false`。
+- **AI 无响应**：`API_KEY`/`API_BASE_URL`/`MODEL_NAME` 配置错误时，/api/interpret 返回 502 且不扣额度。

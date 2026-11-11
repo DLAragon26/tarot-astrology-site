@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="824" viewBox="0 0 480 824">
+  <rect width="480" height="824" fill="#ffffff"/>
+  <rect x="14" y="14" width="452" height="796" fill="none" stroke="#e2e2df" stroke-width="2"/>
+  <rect x="40" y="46" width="400" height="640" fill="#f6f6f4"/>
+  <circle cx="240" cy="330" r="110" fill="none" stroke="#5c6b5e" stroke-width="1.5"/>
+  <line x1="130" y1="330" x2="350" y2="330" stroke="#5c6b5e" stroke-width="0.5"/>
+  <text x="240" y="345" text-anchor="middle" font-family='PingFang SC, Noto Sans SC, sans-serif' font-size="64" fill="#111111">54</text>
+  <text x="240" y="740" text-anchor="middle" font-family='PingFang SC, Noto Sans SC, sans-serif' font-size="34" fill="#111111">宝剑四</text>
+  <text x="240" y="786" text-anchor="middle" font-family='PingFang SC, Noto Sans SC, sans-serif' font-size="18" fill="#6b6b6b">rw-04-four-swords</text>
+</svg>

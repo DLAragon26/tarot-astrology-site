@@ -1,0 +1,22 @@
+name = "tarot-astrology-api"
+main = "src/index.ts"
+compatibility_date = "2026-01-15"
+
+# 部署前：
+#   1. npx wrangler d1 create tarot-astrology
+#   2. 把返回的 database_id 填到下面（这是资源 ID，不是密钥）
+#   3. npx wrangler d1 migrations apply tarot-astrology --remote
+#   4. 按 README 配置 Secrets（wrangler secret put ...）
+[[d1_databases]]
+binding = "DB"
+database_name = "tarot-astrology"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+# 非敏感变量。敏感值（API_KEY / SITE_ACCESS_KEY / SESSION_SECRET / ADMIN_INITIAL_PASSWORD）
+# 一律用 `npx wrangler secret put <NAME>` 配置，绝不写入本文件。
+[vars]
+GLOBAL_DAILY_AI_LIMIT = "200"
+# 部署后改为你的 GitHub Pages 域名，如 "https://USERNAME.github.io,https://tarot-astrology-api.<subdomain>.workers.dev"
+ALLOWED_ORIGINS = "http://localhost:4321"
+COOKIE_SECURE = "true"

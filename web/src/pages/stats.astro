@@ -1,0 +1,19 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="统计 · 塔罗与星座" active="stats">
+  <h1 id="scope-title">统计</h1>
+  <div id="quota-line" class="muted"></div>
+  <div id="content"></div>
+  <div id="admin-block" hidden>
+    <hr class="divider" />
+    <h2>全站概览（管理员）</h2>
+    <div id="admin-content" class="muted">加载中…</div>
+  </div>
+  <div id="err" class="notice error" hidden></div>
+</Base>
+
+<script>
+  import './stats';
+</script>

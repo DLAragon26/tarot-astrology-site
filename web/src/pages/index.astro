@@ -1,0 +1,48 @@
+---
+import '../styles/global.css';
+---
+
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="referrer" content="no-referrer" />
+    <title>登录 · 塔罗与星座</title>
+  </head>
+  <body>
+    <div class="login-wrap">
+      <div class="brand-line">
+        <div class="t">塔罗 · 星座</div>
+        <div class="s">私人记录空间</div>
+      </div>
+      <form id="login-form">
+        <label class="field" for="site-key">站点访问密钥</label>
+        <input type="password" id="site-key" name="site_access_key" autocomplete="off" required />
+        <label class="field" for="username">用户名</label>
+        <input type="text" id="username" name="username" autocomplete="username" required />
+        <label class="field" for="password">密码</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required />
+        <button class="btn" type="submit" id="submit-btn" style="width:100%">进入</button>
+      </form>
+      <div id="login-error" class="notice error" hidden></div>
+      <hr class="divider" />
+      <p class="muted">收到邀请码？<button class="linklike" id="toggle-redeem" type="button">使用邀请码激活账号</button></p>
+      <form id="redeem-form" hidden>
+        <label class="field" for="r-invite">邀请码</label>
+        <input type="text" id="r-invite" autocomplete="off" required />
+        <label class="field" for="r-site-key">站点访问密钥</label>
+        <input type="password" id="r-site-key" autocomplete="off" required />
+        <label class="field" for="r-username">设置用户名</label>
+        <input type="text" id="r-username" autocomplete="username" required />
+        <label class="field" for="r-password">设置密码（至少 8 位）</label>
+        <input type="password" id="r-password" autocomplete="new-password" required />
+        <button class="btn secondary" type="submit" style="width:100%">激活并进入</button>
+      </form>
+      <div id="redeem-error" class="notice error" hidden></div>
+    </div>
+    <script>
+      import './login';
+    </script>
+  </body>
+</html>
