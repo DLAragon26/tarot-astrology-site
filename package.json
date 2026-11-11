@@ -21,7 +21,8 @@
     "db:migrate:remote": "npm run db:migrate:remote --workspace @tarot/worker",
     "assets:gen": "node scripts/gen-placeholders.mjs && node scripts/gen-zodiac-svgs.mjs",
     "cards:download": "node scripts/download-cards.mjs",
-    "cards:verify": "node scripts/download-cards.mjs --verify"
+    "cards:verify": "node scripts/download-cards.mjs --verify",
+    "smoke": "node scripts/smoke.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
