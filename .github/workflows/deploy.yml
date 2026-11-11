@@ -1,9 +1,10 @@
 name: Deploy to GitHub Pages
 
-# 部署前把本文件中的两处占位替换为你的实际值：
-#   1) SITE_URL：https://<username>.github.io
-#   2) PUBLIC_BASE_PATH：/<repo-name>
-# API 地址占位 PUBLIC_API_BASE_URL 替换为你的 Worker 地址（公开值，非密钥）。
+# 部署前在仓库 Settings → Secrets and variables → Actions → Variables 里配置三项（公开值，非密钥）：
+#   SITE_URL             = https://<username>.github.io
+#   PUBLIC_BASE_PATH     = /<repo-name>            （仓库名以 / 开头，如 /tarot-astrology-site）
+#   PUBLIC_API_BASE_URL  = https://tarot-astrology-api.<你的子域>.workers.dev
+# 未配置时使用下面的占位默认值，构建仍会成功，但页面会连到错误的 API 地址。
 
 on:
   push:
@@ -24,18 +25,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+
+      - name: Install dependencies (workspaces)
+        run: npm ci
+
       - name: Build static site
         working-directory: web
         env:
-          SITE_URL: https://USERNAME.github.io
-          PUBLIC_BASE_PATH: /tarot-astrology-site
-          PUBLIC_API_BASE_URL: https://tarot-astrology-api.REPLACE_WITH_YOUR_WORKERS_SUBDOMAIN.workers.dev
+          SITE_URL: ${{ vars.SITE_URL || 'https://USERNAME.github.io' }}
+          PUBLIC_BASE_PATH: ${{ vars.PUBLIC_BASE_PATH || '/tarot-astrology-site' }}
+          PUBLIC_API_BASE_URL: ${{ vars.PUBLIC_API_BASE_URL || 'https://tarot-astrology-api.REPLACE_WITH_YOUR_WORKERS_SUBDOMAIN.workers.dev' }}
         run: npm run build
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

@@ -51,6 +51,7 @@ npm run dev:worker
 | `npm run check` | TypeScript 类型检查 + astro check + secret-scan |
 | `npm test` | vitest：领域校验、额度、权限、记录归属、prompt、Worker API 集成 |
 | `npm run build` | 前端静态构建到 `web/dist` |
+| `npm run smoke` | 本地端到端冒烟：自动起 AI stub + wrangler dev，跑 29 条断言（登录/额度/CRUD/越权/邀请码） |
 | `npm run cards:download` | 从 Wikimedia Commons 下载 78 张牌图并压成 WebP |
 | `npm run cards:verify` | 校验 78 个 WebP 是否齐全 |
 
@@ -59,7 +60,7 @@ npm run dev:worker
 完整步骤见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)。顺序：
 
 1. Cloudflare：建 D1、跑 migration、`wrangler deploy`、配 Secrets（名称清单见下）
-2. 把 Worker 地址填入 `.github/workflows/deploy.yml` 的 `PUBLIC_API_BASE_URL`，并替换 `SITE_URL` / `PUBLIC_BASE_PATH` 占位
+2. GitHub 仓库 Settings → Secrets and variables → Actions → **Variables** 配置三项公开值：`SITE_URL`、`PUBLIC_BASE_PATH`、`PUBLIC_API_BASE_URL`（workflow 已用 `${{ vars.* }}` 读取，未配置则用占位默认值）
 3. Worker 的 `ALLOWED_ORIGINS` 加上你的 Pages 域名
 4. GitHub：Settings → Pages → Source 选 "GitHub Actions"，push 即部署
 
@@ -73,6 +74,28 @@ npm run dev:worker
 | `ADMIN_INITIAL_PASSWORD` | 仅首次引导：用户表为空时用 `admin` + 此密码创建管理员，登录后必须改密 |
 
 非敏感变量（`wrangler.toml` `[vars]`）：`GLOBAL_DAILY_AI_LIMIT`（默认 200）、`ALLOWED_ORIGINS`（CORS 白名单）、`COOKIE_SECURE`（生产必须 true）。
+
+## 环境变量总表（`worker/.dev.vars` ↔ Cloudflare Secrets）
+
+值绝不入仓库。本地复制 `.dev.vars.example` 填写；生产用 `wrangler secret put <NAME>`（Secret）或 `wrangler.toml [vars]`（非敏感）。
+
+| 变量 | 类型 | 用途 |
+| --- | --- | --- |
+| `API_BASE_URL` | Secret（推荐） | OpenAI-compatible 基址，如 `https://api.deepseek.com/v1` |
+| `API_KEY` | **Secret** | AI 服务密钥；只存在于 Worker 环境 |
+| `MODEL_NAME` | Secret（推荐） | 模型名，如 `deepseek-chat` |
+| `MAX_TOKENS` | 可选 | 单次解读输出上限，默认 900 |
+| `TEMPERATURE` | 可选 | 采样温度，默认 0.8 |
+| `SITE_ACCESS_KEY` | **Secret** | 登录三要素之一：站点访问密钥 |
+| `SESSION_SECRET` | **Secret** | session cookie 的 HMAC 签名密钥（随机长串） |
+| `ADMIN_INITIAL_PASSWORD` | **Secret** | 仅首次引导创建 admin 用，改密后可删除 |
+| `GLOBAL_DAILY_AI_LIMIT` | 非敏感 | 全站每日 AI 上限默认值（`settings` 表优先） |
+| `ALLOWED_ORIGINS` | 非敏感 | CORS 白名单，逗号分隔，如 `https://USERNAME.github.io` |
+| `COOKIE_SECURE` | 非敏感 | 默认 `true`；仅本地 http 调试设 `false` |
+
+前端只有一项公开变量：`PUBLIC_API_BASE_URL`（Worker 地址，构建期注入，非密钥）。
+
+**管理员改密**：首次引导登录后，在「管理」页对自己的行点「重置密码」，或 `PATCH /api/admin/users/<自己的 id>` 传 `new_password`（管理员不能改自己的角色/停用自己，但可以改自己的密码）。改密后建议 `wrangler secret delete ADMIN_INITIAL_PASSWORD`。
 
 ## 额度规则
 

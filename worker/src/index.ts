@@ -66,6 +66,8 @@ app.route('/quota', quotaRoutes); // /api/quota
 
 // ---------- 管理员路由 ----------
 
+// 双挂：'/admin/*' 覆盖子路径，'/admin' 覆盖精确路径（未来若新增 adminRoutes.get('/') 也不会裸奔）
+app.use('/admin', requireAdmin);
 app.use('/admin/*', requireAdmin);
 app.route('/admin', adminRoutes);
 
