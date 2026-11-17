@@ -16,13 +16,13 @@ tarot-astrology-site/
 
 ## 功能
 
-- 登录（站点访问密钥 + 用户名 + 密码），无公开注册；管理员可建号或发一次性邀请码，受邀人用邀请码自设密码激活
+- 登录（站点访问密钥 + 用户名 + 密码），无公开注册；管理员可建号或发 7 天有效的一次性邀请码，受邀人用邀请码自设密码激活，管理员可提前撤销邀请码
 - 线上抽牌：问题 → 可选主题/心情标签 → 三种牌阵（单张 / 过去-现在-未来 / 五张问题透视）→ 逐张翻牌 → AI 解读 → 保存
 - 线下录入：手动记录实际排面（位置、牌名、正逆位）→ AI 解读 → 保存
 - 历史记录：查看、备注编辑、删除（按用户隔离；管理员可看全部）
 - 统计：总次数、月度趋势、线上线下比例、主题/牌阵分布、高频牌、正逆位比例、AI 用量；管理员另有全站用量与额度面板
 - 太阳星座页：12 星座基础内容（静态，不调用 AI）
-- Rider-Waite 78 张牌图（Wikimedia Commons 公有领域），加载失败自动回退占位 SVG
+- 随仓库分发 Rider-Waite 78 张 WebP 牌图（Wikimedia Commons 公有领域），加载失败自动回退占位 SVG
 
 ## 本地开发
 
@@ -53,8 +53,9 @@ npm run dev:worker
 | `npm run build` | 前端静态构建到 `web/dist` |
 | `npm run build:pages` | 按 GitHub Pages 子路径形态构建（`PUBLIC_BASE_PATH=/tarot-astrology-site`）；本地预览需先起 Worker，或显式传 `PUBLIC_API_BASE_URL` 指向你的 API 地址 |
 | `npm run check:base` | 子路径断链自检（配合 `build:pages` 使用；CI 在 build 之后、上传之前跑） |
-| `npm run smoke` | 本地端到端冒烟：自动起 AI stub + wrangler dev，跑 29 条断言（登录/额度/CRUD/越权/邀请码） |
+| `npm run smoke` | 本地端到端冒烟：使用 `/tmp` 隔离 D1，自动起 AI stub + wrangler dev，跑 29 条断言；不触碰本地开发数据 |
 | `npm run cards:download` | 从 Wikimedia Commons 下载 78 张牌图并压成 WebP |
+| `npm run cards:import -- --from <目录>` | 将浏览器已下载的官方 PNG 离线导入为 78 张 WebP，并生成来源清单 |
 | `npm run cards:verify` | 校验 78 个 WebP 是否齐全 |
 
 ## 部署（概述）
@@ -97,14 +98,16 @@ npm run dev:worker
 
 前端只有一项公开变量：`PUBLIC_API_BASE_URL`（Worker 地址，构建期注入，非密钥）。
 
+**隐私提示**：点击 AI 解读后，问题、标签和牌面会发送给部署方配置的 AI 供应商；管理员可以在“历史 → 全站记录”查看成员保存的记录。页面会在调用前提示 AI 数据传输。
+
 **管理员改密**：首次引导登录后，在「管理」页对自己的行点「重置密码」，或 `PATCH /api/admin/users/<自己的 id>` 传 `new_password`（管理员不能改自己的角色/停用自己，但可以改自己的密码）。改密后建议 `wrangler secret delete ADMIN_INITIAL_PASSWORD`。
 
 ## 额度规则
 
-- 普通成员默认每日 20 次 AI 解读；管理员个人无上限
+- 所有用户（包括管理员）初始每日 0 次 AI 解读；只有管理员显式分配正整数后才能调用
 - 全站每日上限默认 200 次（`settings` 表 `global_daily_ai_limit`，管理员接口可查）
 - 重置时刻：Asia/Shanghai 午夜
-- 每次解读按顺序检查：登录 → 角色 → 个人额度 → 全站额度 → 输入校验 → 才调用 AI
+- 每次解读按顺序检查：登录 → 个人额度 → 全站额度 → 输入校验 → 才调用 AI
 - AI 失败时额度自动退还，返回明确错误，绝不输出伪装解读；额度耗尽时仍可查看已抽出的牌面、位置与基础牌义（未登录只能看到登录页）
 
 ## 切换 AI 供应商（如 DeepSeek → 其他 OpenAI-compatible）

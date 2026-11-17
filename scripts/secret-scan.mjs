@@ -41,7 +41,9 @@ const problems = [];
 
 function listGitFiles() {
   try {
-    return execSync('git ls-files', { cwd: root, encoding: 'utf8' }).split('\n').filter(Boolean);
+    return execSync('git ls-files --cached --others --exclude-standard', { cwd: root, encoding: 'utf8' })
+      .split('\n')
+      .filter(Boolean);
   } catch {
     return [];
   }
@@ -72,7 +74,7 @@ for (const f of gitFiles) {
   }
 }
 
-// A + B：检查 git 文件 + 构建产物
+// A + B：检查已跟踪、未忽略的未跟踪文件 + 构建产物
 const filesToScan = new Set(gitFiles);
 for (const f of walk(path.join(root, 'web/dist'))) filesToScan.add(path.relative(root, f));
 
@@ -135,4 +137,4 @@ if (problems.length > 0) {
   for (const p of problems) console.error('  ' + p);
   process.exit(1);
 }
-console.log(`secret-scan OK: ${filesToScan.size} files scanned (git-tracked + web/dist), no secrets found`);
+console.log(`secret-scan OK: ${filesToScan.size} files scanned (source tree + web/dist), no secrets found`);

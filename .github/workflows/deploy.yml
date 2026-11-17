@@ -50,6 +50,12 @@ jobs:
       - name: Install dependencies (workspaces)
         run: npm ci
 
+      - name: Typecheck and scan
+        run: npm run check
+
+      - name: Unit and API integration tests
+        run: npm test
+
       - name: Build static site
         working-directory: web
         env:
@@ -63,8 +69,10 @@ jobs:
           PUBLIC_BASE_PATH: ${{ vars.PUBLIC_BASE_PATH || '/tarot-astrology-site' }}
         run: node scripts/check-base-links.mjs
 
-      - name: Verify card asset manifest
-        run: node scripts/gen-card-assets.mjs --check
+      - name: Verify card assets and manifest
+        run: |
+          npm run cards:verify
+          npm run cards:assets:check
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

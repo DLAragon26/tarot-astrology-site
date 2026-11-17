@@ -1,0 +1,396 @@
+{
+  "source": "Wikimedia Commons — Category:Rider-Waite tarot deck",
+  "license": "Public domain (Rider-Waite Tarot, 1909/1910)",
+  "cards": [
+    {
+      "id": "rw-00-fool",
+      "file": "RWS Tarot 1910 - 00 The Fool.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2000%20The%20Fool.png"
+    },
+    {
+      "id": "rw-01-ace-cups",
+      "file": "RWS Tarot 1910 - Cups 01 (Ace).png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Cups%2001%20(Ace).png"
+    },
+    {
+      "id": "rw-01-ace-pentacles",
+      "file": "RWS Tarot 1910 - Pentacles 01 (Ace).png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Pentacles%2001%20(Ace).png"
+    },
+    {
+      "id": "rw-01-ace-swords",
+      "file": "RWS Tarot 1910 - Swords 01 (Ace).png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Swords%2001%20(Ace).png"
+    },
+    {
+      "id": "rw-01-ace-wands",
+      "file": "RWS Tarot 1910 - Wands 01 (Ace).png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Wands%2001%20(Ace).png"
+    },
+    {
+      "id": "rw-01-magician",
+      "file": "RWS Tarot 1910 - 01 The Magician.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2001%20The%20Magician.png"
+    },
+    {
+      "id": "rw-02-high-priestess",
+      "file": "RWS Tarot 1910 - 02 The High Priestess.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2002%20The%20High%20Priestess.png"
+    },
+    {
+      "id": "rw-02-two-cups",
+      "file": "RWS Tarot 1910 - Cups 02.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Cups%2002.png"
+    },
+    {
+      "id": "rw-02-two-pentacles",
+      "file": "RWS Tarot 1910 - Pentacles 02.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Pentacles%2002.png"
+    },
+    {
+      "id": "rw-02-two-swords",
+      "file": "RWS Tarot 1910 - Swords 02.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Swords%2002.png"
+    },
+    {
+      "id": "rw-02-two-wands",
+      "file": "RWS Tarot 1910 - Wands 02.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Wands%2002.png"
+    },
+    {
+      "id": "rw-03-empress",
+      "file": "RWS Tarot 1910 - 03 The Empress.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2003%20The%20Empress.png"
+    },
+    {
+      "id": "rw-03-three-cups",
+      "file": "RWS Tarot 1910 - Cups 03.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Cups%2003.png"
+    },
+    {
+      "id": "rw-03-three-pentacles",
+      "file": "RWS Tarot 1910 - Pentacles 03.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Pentacles%2003.png"
+    },
+    {
+      "id": "rw-03-three-swords",
+      "file": "RWS Tarot 1910 - Swords 03.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Swords%2003.png"
+    },
+    {
+      "id": "rw-03-three-wands",
+      "file": "RWS Tarot 1910 - Wands 03.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Wands%2003.png"
+    },
+    {
+      "id": "rw-04-emperor",
+      "file": "RWS Tarot 1910 - 04 The Emperor.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2004%20The%20Emperor.png"
+    },
+    {
+      "id": "rw-04-four-cups",
+      "file": "RWS Tarot 1910 - Cups 04.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Cups%2004.png"
+    },
+    {
+      "id": "rw-04-four-pentacles",
+      "file": "RWS Tarot 1910 - Pentacles 04.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Pentacles%2004.png"
+    },
+    {
+      "id": "rw-04-four-swords",
+      "file": "RWS Tarot 1910 - Swords 04.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Swords%2004.png"
+    },
+    {
+      "id": "rw-04-four-wands",
+      "file": "RWS Tarot 1910 - Wands 04.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Wands%2004.png"
+    },
+    {
+      "id": "rw-05-five-cups",
+      "file": "RWS Tarot 1910 - Cups 05.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Cups%2005.png"
+    },
+    {
+      "id": "rw-05-five-pentacles",
+      "file": "RWS Tarot 1910 - Pentacles 05.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Pentacles%2005.png"
+    },
+    {
+      "id": "rw-05-five-swords",
+      "file": "RWS Tarot 1910 - Swords 05.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Swords%2005.png"
+    },
+    {
+      "id": "rw-05-five-wands",
+      "file": "RWS Tarot 1910 - Wands 05.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Wands%2005.png"
+    },
+    {
+      "id": "rw-05-hierophant",
+      "file": "RWS Tarot 1910 - 05 The Hierophant.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2005%20The%20Hierophant.png"
+    },
+    {
+      "id": "rw-06-lovers",
+      "file": "RWS Tarot 1910 - 06 The Lovers.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2006%20The%20Lovers.png"
+    },
+    {
+      "id": "rw-06-six-cups",
+      "file": "RWS Tarot 1910 - Cups 06.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Cups%2006.png"
+    },
+    {
+      "id": "rw-06-six-pentacles",
+      "file": "RWS Tarot 1910 - Pentacles 06.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Pentacles%2006.png"
+    },
+    {
+      "id": "rw-06-six-swords",
+      "file": "RWS Tarot 1910 - Swords 06.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Swords%2006.png"
+    },
+    {
+      "id": "rw-06-six-wands",
+      "file": "RWS Tarot 1910 - Wands 06.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Wands%2006.png"
+    },
+    {
+      "id": "rw-07-chariot",
+      "file": "RWS Tarot 1910 - 07 The Chariot.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2007%20The%20Chariot.png"
+    },
+    {
+      "id": "rw-07-seven-cups",
+      "file": "RWS Tarot 1910 - Cups 07.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Cups%2007.png"
+    },
+    {
+      "id": "rw-07-seven-pentacles",
+      "file": "RWS Tarot 1910 - Pentacles 07.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Pentacles%2007.png"
+    },
+    {
+      "id": "rw-07-seven-swords",
+      "file": "RWS Tarot 1910 - Swords 07.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Swords%2007.png"
+    },
+    {
+      "id": "rw-07-seven-wands",
+      "file": "RWS Tarot 1910 - Wands 07.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Wands%2007.png"
+    },
+    {
+      "id": "rw-08-eight-cups",
+      "file": "RWS Tarot 1910 - Cups 08.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Cups%2008.png"
+    },
+    {
+      "id": "rw-08-eight-pentacles",
+      "file": "RWS Tarot 1910 - Pentacles 08.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Pentacles%2008.png"
+    },
+    {
+      "id": "rw-08-eight-swords",
+      "file": "RWS Tarot 1910 - Swords 08.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Swords%2008.png"
+    },
+    {
+      "id": "rw-08-eight-wands",
+      "file": "RWS Tarot 1910 - Wands 08.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Wands%2008.png"
+    },
+    {
+      "id": "rw-08-strength",
+      "file": "RWS Tarot 1910 - 08 Strength.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2008%20Strength.png"
+    },
+    {
+      "id": "rw-09-hermit",
+      "file": "RWS Tarot 1910 - 09 The Hermit.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2009%20The%20Hermit.png"
+    },
+    {
+      "id": "rw-09-nine-cups",
+      "file": "RWS Tarot 1910 - Cups 09.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Cups%2009.png"
+    },
+    {
+      "id": "rw-09-nine-pentacles",
+      "file": "RWS Tarot 1910 - Pentacles 09.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Pentacles%2009.png"
+    },
+    {
+      "id": "rw-09-nine-swords",
+      "file": "RWS Tarot 1910 - Swords 09.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Swords%2009.png"
+    },
+    {
+      "id": "rw-09-nine-wands",
+      "file": "RWS Tarot 1910 - Wands 09.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Wands%2009.png"
+    },
+    {
+      "id": "rw-10-ten-cups",
+      "file": "RWS Tarot 1910 - Cups 10.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Cups%2010.png"
+    },
+    {
+      "id": "rw-10-ten-pentacles",
+      "file": "RWS Tarot 1910 - Pentacles 10.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Pentacles%2010.png"
+    },
+    {
+      "id": "rw-10-ten-swords",
+      "file": "RWS Tarot 1910 - Swords 10.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Swords%2010.png"
+    },
+    {
+      "id": "rw-10-ten-wands",
+      "file": "RWS Tarot 1910 - Wands 10.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Wands%2010.png"
+    },
+    {
+      "id": "rw-10-wheel-of-fortune",
+      "file": "RWS Tarot 1910 - 10 Wheel of Fortune.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2010%20Wheel%20of%20Fortune.png"
+    },
+    {
+      "id": "rw-11-justice",
+      "file": "RWS Tarot 1910 - 11 Justice.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2011%20Justice.png"
+    },
+    {
+      "id": "rw-11-page-cups",
+      "file": "RWS Tarot 1910 - Cups 11 (Page).png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Cups%2011%20(Page).png"
+    },
+    {
+      "id": "rw-11-page-pentacles",
+      "file": "RWS Tarot 1910 - Pentacles 11 (Page).png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Pentacles%2011%20(Page).png"
+    },
+    {
+      "id": "rw-11-page-swords",
+      "file": "RWS Tarot 1910 - Swords 11 (Page).png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Swords%2011%20(Page).png"
+    },
+    {
+      "id": "rw-11-page-wands",
+      "file": "RWS Tarot 1910 - Wands 11 (Page).png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Wands%2011%20(Page).png"
+    },
+    {
+      "id": "rw-12-hanged-man",
+      "file": "RWS Tarot 1910 - 12 The Hanged Man.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2012%20The%20Hanged%20Man.png"
+    },
+    {
+      "id": "rw-12-knight-cups",
+      "file": "RWS Tarot 1910 - Cups 12 (Knight).png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Cups%2012%20(Knight).png"
+    },
+    {
+      "id": "rw-12-knight-pentacles",
+      "file": "RWS Tarot 1910 - Pentacles 12 (Knight).png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Pentacles%2012%20(Knight).png"
+    },
+    {
+      "id": "rw-12-knight-swords",
+      "file": "RWS Tarot 1910 - Swords 12 (Knight).png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Swords%2012%20(Knight).png"
+    },
+    {
+      "id": "rw-12-knight-wands",
+      "file": "RWS Tarot 1910 - Wands 12 (Knight).png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Wands%2012%20(Knight).png"
+    },
+    {
+      "id": "rw-13-death",
+      "file": "RWS Tarot 1910 - 13 Death.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2013%20Death.png"
+    },
+    {
+      "id": "rw-13-queen-cups",
+      "file": "RWS Tarot 1910 - Cups 13 (Queen).png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Cups%2013%20(Queen).png"
+    },
+    {
+      "id": "rw-13-queen-pentacles",
+      "file": "RWS Tarot 1910 - Pentacles 13 (Queen).png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Pentacles%2013%20(Queen).png"
+    },
+    {
+      "id": "rw-13-queen-swords",
+      "file": "RWS Tarot 1910 - Swords 13 (Queen).png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Swords%2013%20(Queen).png"
+    },
+    {
+      "id": "rw-13-queen-wands",
+      "file": "RWS Tarot 1910 - Wands 13 (Queen).png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Wands%2013%20(Queen).png"
+    },
+    {
+      "id": "rw-14-king-cups",
+      "file": "RWS Tarot 1910 - Cups 14 (King).png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Cups%2014%20(King).png"
+    },
+    {
+      "id": "rw-14-king-pentacles",
+      "file": "RWS Tarot 1910 - Pentacles 14 (King).png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Pentacles%2014%20(King).png"
+    },
+    {
+      "id": "rw-14-king-swords",
+      "file": "RWS Tarot 1910 - Swords 14 (King).png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Swords%2014%20(King).png"
+    },
+    {
+      "id": "rw-14-king-wands",
+      "file": "RWS Tarot 1910 - Wands 14 (King).png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%20Wands%2014%20(King).png"
+    },
+    {
+      "id": "rw-14-temperance",
+      "file": "RWS Tarot 1910 - 14 Temperance.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2014%20Temperance.png"
+    },
+    {
+      "id": "rw-15-devil",
+      "file": "RWS Tarot 1910 - 15 The Devil.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2015%20The%20Devil.png"
+    },
+    {
+      "id": "rw-16-tower",
+      "file": "RWS Tarot 1910 - 16 The Tower.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2016%20The%20Tower.png"
+    },
+    {
+      "id": "rw-17-star",
+      "file": "RWS Tarot 1910 - 17 The Star.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2017%20The%20Star.png"
+    },
+    {
+      "id": "rw-18-moon",
+      "file": "RWS Tarot 1910 - 18 The Moon.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2018%20The%20Moon.png"
+    },
+    {
+      "id": "rw-19-sun",
+      "file": "RWS Tarot 1910 - 19 The Sun.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2019%20The%20Sun.png"
+    },
+    {
+      "id": "rw-20-judgement",
+      "file": "RWS Tarot 1910 - 20 Judgement.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2020%20Judgement.png"
+    },
+    {
+      "id": "rw-21-world",
+      "file": "RWS Tarot 1910 - 21 The World.png",
+      "commons_url": "https://commons.wikimedia.org/wiki/File:RWS%20Tarot%201910%20-%2021%20The%20World.png"
+    }
+  ]
+}

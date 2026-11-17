@@ -65,9 +65,31 @@ readingRoutes.get('/', async (c) => {
   const scope = c.req.query('scope') === 'all' && user.role === 'admin' ? 'all' : 'self';
   const limit = Math.min(Math.max(Number(c.req.query('limit') ?? '50') || 50, 1), 200);
   const offset = Math.max(Number(c.req.query('offset') ?? '0') || 0, 0);
+  const modeQuery = c.req.query('mode');
+  const topicQuery = c.req.query('topic');
+  if (modeQuery !== undefined && !isReadingMode(modeQuery)) {
+    return c.json({ error: { code: ERR.VALIDATION, message: 'mode 筛选条件不合法' } }, 400);
+  }
+  const topic = topicQuery === undefined ? null : validateTopicTag(topicQuery);
+  if (topicQuery !== undefined && !topic) {
+    return c.json({ error: { code: ERR.VALIDATION, message: 'topic 筛选条件不合法' } }, 400);
+  }
 
-  const where = scope === 'all' ? '' : 'WHERE user_id = ?';
-  const args = scope === 'all' ? [] : [user.id];
+  const conditions: string[] = [];
+  const args: string[] = [];
+  if (scope === 'self') {
+    conditions.push('user_id = ?');
+    args.push(user.id);
+  }
+  if (modeQuery) {
+    conditions.push('mode = ?');
+    args.push(modeQuery);
+  }
+  if (topic) {
+    conditions.push('topic_tag = ?');
+    args.push(topic);
+  }
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   const rows = await c.env.DB.prepare(
     `SELECT * FROM readings ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`
   )

@@ -12,9 +12,15 @@ import type { Env } from '../env';
 import { getGlobalDailyLimit, getGlobalUsage, getUserDailyLimit, getUserUsage } from '../quota';
 
 export const adminRoutes = new Hono<{ Bindings: Env; Variables: { user: UserRow } }>();
+const INVITE_TTL_DAYS = 7;
 
 function nowISO(): string {
   return new Date().toISOString();
+}
+
+function effectiveInviteStatus(status: string, expiresAt: string | null): string {
+  if (status === 'active' && expiresAt && Date.parse(expiresAt) <= Date.now()) return 'expired';
+  return status;
 }
 
 function generateInviteCode(): string {
@@ -46,7 +52,7 @@ adminRoutes.get('/users', async (c) => {
       is_active: row.is_active === 1,
       used_today: row.used_today,
       readings_count: row.readings_count,
-      remaining: row.role === 'admin' ? -1 : Math.max(limit - row.used_today, 0),
+      remaining: Math.max(limit - row.used_today, 0),
     });
   }
   return c.json({ users });
@@ -100,7 +106,7 @@ adminRoutes.post('/users', async (c) => {
         created_at: ts,
         used_today: 0,
         readings_count: 0,
-        remaining: role === 'admin' ? -1 : limit,
+        remaining: limit,
       },
     },
     201
@@ -180,28 +186,83 @@ adminRoutes.patch('/users/:id', async (c) => {
 adminRoutes.post('/invite-codes', async (c) => {
   const admin = c.get('user');
   const code = generateInviteCode();
-  await c.env.DB.prepare('INSERT INTO invite_codes (code, created_by, created_at, status) VALUES (?, ?, ?, ?)')
-    .bind(code, admin.id, nowISO(), 'active')
+  const createdAt = nowISO();
+  const expiresAt = new Date(Date.now() + INVITE_TTL_DAYS * 24 * 3600 * 1000).toISOString();
+  await c.env.DB.prepare(
+    'INSERT INTO invite_codes (code, created_by, created_at, expires_at, status) VALUES (?, ?, ?, ?, ?)'
+  )
+    .bind(code, admin.id, createdAt, expiresAt, 'active')
     .run();
-  return c.json({ invite_code: { code, status: 'active', created_at: nowISO() } }, 201);
+  return c.json(
+    {
+      invite_code: {
+        code,
+        status: 'active',
+        created_at: createdAt,
+        expires_at: expiresAt,
+      },
+    },
+    201
+  );
 });
 
 // GET /api/admin/invite-codes
 adminRoutes.get('/invite-codes', async (c) => {
   const rows = await c.env.DB.prepare(
-    `SELECT i.code, i.created_at, i.status, i.redeemed_at, u.username AS redeemed_by
+    `SELECT i.code, i.created_at, i.expires_at, i.status, i.redeemed_at, u.username AS redeemed_by
      FROM invite_codes i LEFT JOIN users u ON u.id = i.redeemed_by
      ORDER BY i.created_at DESC LIMIT 200`
-  ).all<{ code: string; created_at: string; status: string; redeemed_at: string | null; redeemed_by: string | null }>();
+  ).all<{
+    code: string;
+    created_at: string;
+    expires_at: string | null;
+    status: string;
+    redeemed_at: string | null;
+    redeemed_by: string | null;
+  }>();
   return c.json({
     invite_codes: (rows.results ?? []).map((r) => ({
       code: r.code,
       created_at: r.created_at,
-      status: r.status,
+      expires_at: r.expires_at,
+      status: effectiveInviteStatus(r.status, r.expires_at),
       redeemed_by: r.redeemed_by,
       redeemed_at: r.redeemed_at,
     })),
   });
+});
+
+// PATCH /api/admin/invite-codes/:code — 撤销一个仍有效的邀请码
+adminRoutes.patch('/invite-codes/:code', async (c) => {
+  let body: { action?: unknown };
+  try {
+    body = (await c.req.json()) as { action?: unknown };
+  } catch {
+    return c.json({ error: { code: ERR.VALIDATION, message: '请求体必须是 JSON' } }, 400);
+  }
+  if (body.action !== 'revoke') {
+    return c.json({ error: { code: ERR.VALIDATION, message: 'action 必须是 revoke' } }, 400);
+  }
+  const code = c.req.param('code');
+  const invite = await c.env.DB.prepare(
+    'SELECT code, created_at, expires_at, status, redeemed_at FROM invite_codes WHERE code = ?'
+  )
+    .bind(code)
+    .first<{
+      code: string;
+      created_at: string;
+      expires_at: string | null;
+      status: string;
+      redeemed_at: string | null;
+    }>();
+  if (!invite) return c.json({ error: { code: ERR.NOT_FOUND, message: '邀请码不存在' } }, 404);
+  if (effectiveInviteStatus(invite.status, invite.expires_at) !== 'active') {
+    return c.json({ error: { code: ERR.CONFLICT, message: '该邀请码已失效，无法撤销' } }, 409);
+  }
+  await c.env.DB.prepare("UPDATE invite_codes SET status = 'revoked' WHERE code = ? AND status = 'active'")
+    .bind(code)
+    .run();
+  return c.json({ invite_code: { code, status: 'revoked' } });
 });
 
 // GET /api/admin/stats
@@ -221,8 +282,18 @@ adminRoutes.get('/stats', async (c) => {
     .all<UserRow & { used_today: number; readings_count: number }>();
 
   const inviteRows = await c.env.DB.prepare(
-    `SELECT code, created_at, status, redeemed_by, redeemed_at FROM invite_codes ORDER BY created_at DESC LIMIT 200`
-  ).all<{ code: string; created_at: string; status: string; redeemed_by: string | null; redeemed_at: string | null }>();
+    `SELECT i.code, i.created_at, i.expires_at, i.status, i.redeemed_by, u.username, i.redeemed_at
+     FROM invite_codes i LEFT JOIN users u ON u.id = i.redeemed_by
+     ORDER BY i.created_at DESC LIMIT 200`
+  ).all<{
+    code: string;
+    created_at: string;
+    expires_at: string | null;
+    status: string;
+    redeemed_by: string | null;
+    username: string | null;
+    redeemed_at: string | null;
+  }>();
 
   const users = [];
   for (const row of userRows.results ?? []) {
@@ -232,7 +303,7 @@ adminRoutes.get('/stats', async (c) => {
       is_active: row.is_active === 1,
       used_today: row.used_today,
       readings_count: row.readings_count,
-      remaining: row.role === 'admin' ? -1 : Math.max(limit - row.used_today, 0),
+      remaining: Math.max(limit - row.used_today, 0),
     });
   }
 
@@ -242,7 +313,14 @@ adminRoutes.get('/stats', async (c) => {
       global_limit: globalLimit,
       global_used_today: globalUsed,
       users,
-      invite_codes: inviteRows.results ?? [],
+      invite_codes: (inviteRows.results ?? []).map((r) => ({
+        code: r.code,
+        created_at: r.created_at,
+        expires_at: r.expires_at,
+        status: effectiveInviteStatus(r.status, r.expires_at),
+        redeemed_by: r.username,
+        redeemed_at: r.redeemed_at,
+      })),
     },
   });
 });

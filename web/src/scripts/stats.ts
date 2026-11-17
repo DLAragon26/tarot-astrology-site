@@ -18,6 +18,13 @@ function h2(text: string): HTMLElement {
   return el('h2', undefined, text);
 }
 
+function tableScroll(table: HTMLTableElement, wide = false): HTMLElement {
+  const wrap = el('div', 'table-scroll');
+  if (wide) table.classList.add('wide');
+  wrap.appendChild(table);
+  return wrap;
+}
+
 function barRows(title: string, rows: CountRow[], labelFn: (r: CountRow) => string): HTMLElement {
   const wrap = document.createElement('div');
   wrap.appendChild(h2(title));
@@ -55,10 +62,15 @@ function renderStats(stats: ReadingStats): void {
   const maxMonth = Math.max(...stats.by_month.map((m) => m.count), 1);
   for (const m of stats.by_month) {
     const col = el('div', 'col');
+    const slot = el('div', 'slot');
     const v = el('div', 'v');
     v.style.height = `${Math.round((m.count / maxMonth) * 100)}%`;
-    col.appendChild(v);
-    col.appendChild(el('span', undefined, m.key.slice(2)));
+    v.title = `${m.key}：${m.count} 次`;
+    slot.appendChild(v);
+    col.appendChild(slot);
+    const label = el('span', undefined, `${Number(m.key.slice(5))}月`);
+    label.title = m.key;
+    col.appendChild(label);
     chart.appendChild(col);
   }
   months.appendChild(chart);
@@ -124,7 +136,7 @@ function renderStats(stats: ReadingStats): void {
       tbody.appendChild(tr);
     }
     table.appendChild(tbody);
-    topCards.appendChild(table);
+    topCards.appendChild(tableScroll(table));
   }
   content.appendChild(topCards);
 }
@@ -157,25 +169,34 @@ async function renderAdmin(): Promise<void> {
       tr.appendChild(el('td', undefined, u.username));
       tr.appendChild(el('td', undefined, u.role === 'admin' ? '管理员' : '成员'));
       tr.appendChild(el('td', undefined, String(u.used_today)));
-      tr.appendChild(el('td', undefined, u.remaining === -1 ? '无上限' : String(u.remaining)));
+      tr.appendChild(el('td', undefined, String(u.remaining)));
       tr.appendChild(el('td', undefined, String(u.readings_count)));
       tr.appendChild(el('td', undefined, u.is_active ? '正常' : '已停用'));
       tbody.appendChild(tr);
     }
     table.appendChild(tbody);
-    adminContent.appendChild(table);
+    adminContent.appendChild(tableScroll(table, true));
 
     // 邀请码状态
     adminContent.appendChild(h2('邀请码状态'));
     const active = stats.invite_codes.filter((c) => c.status === 'active').length;
     const redeemed = stats.invite_codes.filter((c) => c.status === 'redeemed').length;
+    const closed = stats.invite_codes.filter((c) => c.status === 'expired' || c.status === 'revoked').length;
     adminContent.appendChild(
-      el('p', 'muted', `未使用 ${active} · 已使用 ${redeemed} · 完整管理请到「管理」页`)
+      el('p', 'muted', `有效 ${active} · 已使用 ${redeemed} · 已过期/撤销 ${closed} · 完整管理请到「管理」页`)
     );
     if (stats.invite_codes.length > 0) {
       const last = stats.invite_codes[0];
+      const statusText =
+        last.status === 'active'
+          ? '有效'
+          : last.status === 'redeemed'
+            ? `已被 ${last.redeemed_by} 使用`
+            : last.status === 'expired'
+              ? '已过期'
+              : '已撤销';
       adminContent.appendChild(
-        el('p', 'muted', `最近一个码：${last.code}（${last.status === 'active' ? '未使用' : last.status === 'redeemed' ? `已被 ${last.redeemed_by} 使用` : '已撤销'}，创建于 ${fmtDate(last.created_at)}）`)
+        el('p', 'muted', `最近一个码：${last.code}（${statusText}，创建于 ${fmtDate(last.created_at)}）`)
       );
     }
   } catch {
@@ -191,8 +212,8 @@ Promise.all([
   .then(([statsRes, quotaRes, meRes]) => {
     const { quota } = quotaRes;
     quotaLine.textContent =
-      quota.daily_limit === -1
-        ? `管理员无个人上限 · 今日全站 ${quota.global_used_today}/${quota.global_limit} · 每日午夜（Asia/Shanghai）重置`
+      quota.daily_limit === 0 && quota.used_today === 0
+        ? `今日 AI 额度尚未分配（0/0）· 请联系管理员 · 全站 ${quota.global_used_today}/${quota.global_limit}`
         : `今日 AI 额度：已用 ${quota.used_today}/${quota.daily_limit} · 剩余 ${quota.remaining} · 全站 ${quota.global_used_today}/${quota.global_limit} · 每日午夜（Asia/Shanghai）重置`;
     renderStats(statsRes.stats);
     if (meRes.user.role === 'admin') void renderAdmin();

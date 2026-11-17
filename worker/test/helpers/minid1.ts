@@ -37,14 +37,14 @@ class Stmt {
     return (this.db.prepare(this.sql).get(...this.params) as T | undefined) ?? null;
   }
 
-  all<T = Record<string, unknown>>(): { results: T[]; success: true; meta: Record<string, never> } {
+  all<T = Record<string, unknown>>(): { results: T[]; success: true; meta: Record<string, unknown> } {
     const rows = this.db.prepare(this.sql).all(...this.params) as T[];
     return { results: rows, success: true, meta: {} };
   }
 
-  run(): { success: true; meta: Record<string, never> } {
-    this.db.prepare(this.sql).run(...this.params);
-    return { success: true, meta: {} };
+  run(): { success: true; meta: Record<string, unknown> } {
+    const result = this.db.prepare(this.sql).run(...this.params);
+    return { success: true, meta: { changes: Number(result.changes) } };
   }
 }
 
@@ -60,11 +60,11 @@ export class MiniD1 {
     return new Stmt(this.db, sql);
   }
 
-  batch<T = unknown>(stmts: Stmt[]): { results: T[]; success: true; meta: Record<string, never> }[] {
+  batch<T = unknown>(stmts: Stmt[]): { results: T[]; success: true; meta: Record<string, unknown> }[] {
     // D1 契约：batch 返回 D1Result[]（数组），每项 { results, success, meta }
     return stmts.map((s) => {
-      s.run();
-      return { results: [] as T[], success: true as const, meta: {} };
+      const result = s.run();
+      return { results: [] as T[], success: true as const, meta: result.meta };
     });
   }
 

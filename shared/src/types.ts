@@ -76,7 +76,7 @@ export interface AdminUserRow extends PublicUser {
   is_active: boolean;
   used_today: number;
   readings_count: number;
-  /** member = 剩余额度；admin = -1（无上限） */
+  /** 今日剩余 AI 额度；所有角色均由管理员显式分配 */
   remaining: number;
 }
 
@@ -180,7 +180,8 @@ export interface ReadingStats {
 export interface AdminInviteRow {
   code: string;
   created_at: string;
-  status: 'active' | 'redeemed' | 'revoked';
+  expires_at: string | null;
+  status: 'active' | 'redeemed' | 'revoked' | 'expired';
   redeemed_by: string | null;
   redeemed_at: string | null;
 }

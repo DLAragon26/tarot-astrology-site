@@ -2,7 +2,7 @@ import { DEFAULT_DAILY_AI_LIMIT, FALLBACK_GLOBAL_DAILY_AI_LIMIT, nextShanghaiMid
 import type { Env } from './env';
 
 // AI 额度：按 Asia/Shanghai 午夜重置。
-// 用户限额：users.daily_ai_limit（NULL = 默认 20）；admin 无上限。
+// 用户限额：users.daily_ai_limit（NULL = 默认 0）；管理员也必须获得显式分配。
 // 全局限额：settings.global_daily_ai_limit → env.GLOBAL_DAILY_AI_LIMIT → 常量 200。
 
 export async function getUserDailyLimit(DB: D1Database, dailyAiLimit: number | null): Promise<number> {

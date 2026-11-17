@@ -81,7 +81,16 @@ export function renderSpreadArea(
 
     if (opts.interactive) {
       wrap.classList.add('clickable');
+      wrap.tabIndex = 0;
+      wrap.setAttribute('role', 'button');
+      wrap.setAttribute('aria-label', `翻开${pos?.labelZh ?? drawn.position}位置的牌`);
       wrap.addEventListener('click', () => wrap.classList.add('flipped'));
+      wrap.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          wrap.classList.add('flipped');
+        }
+      });
     } else {
       // 逐张自动翻开
       setTimeout(() => wrap.classList.add('flipped'), 200 + i * 450);
@@ -133,12 +142,7 @@ export async function requestInterpret(state: SessionState, errBox: HTMLElement)
     state.interpretation = res.interpretation;
     return res.interpretation;
   } catch (err) {
-    const message =
-      err instanceof ApiError
-        ? err.detail
-          ? `${err.message}（${err.detail}）`
-          : err.message
-        : '解读请求失败，请稍后重试';
+    const message = err instanceof ApiError ? err.message : '解读请求失败，请稍后重试';
     errBox.textContent = message;
     errBox.hidden = false;
     return null;
@@ -175,9 +179,15 @@ export function mountSpreadPicker(container: HTMLElement, onPick: (id: SpreadId)
     b.style.margin = '0 8px 8px 0';
     b.textContent = `${spread.nameZh}（${spread.positions.length} 张）`;
     b.title = spread.descriptionZh;
+    b.setAttribute('aria-pressed', 'false');
     b.addEventListener('click', () => {
-      for (const other of Array.from(container.children)) (other as HTMLButtonElement).style.borderColor = '';
+      for (const other of Array.from(container.children)) {
+        const button = other as HTMLButtonElement;
+        button.style.borderColor = '';
+        button.setAttribute('aria-pressed', 'false');
+      }
       b.style.borderColor = 'var(--accent)';
+      b.setAttribute('aria-pressed', 'true');
       onPick(id);
     });
     container.appendChild(b);

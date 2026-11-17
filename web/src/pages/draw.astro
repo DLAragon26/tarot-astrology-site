@@ -22,6 +22,7 @@ import Base from '../layouts/Base.astro';
       <select id="mood"></select>
     </div>
   </div>
+  <div id="draft-notice" class="notice" hidden></div>
 
   <h2>选择牌阵</h2>
   <div id="spread-picker"></div>
@@ -34,6 +35,7 @@ import Base from '../layouts/Base.astro';
 
   <div id="result-area" hidden>
     <button class="btn" id="interpret-btn" type="button">请求 AI 解读</button>
+    <p class="muted">点击解读会将问题、标签和牌面发送给本站配置的 AI 服务。</p>
     <div id="interpret-err" class="notice error" hidden></div>
     <div id="interpret-out" hidden>
       <div class="panel"><p id="interpret-text"></p></div>

@@ -1,6 +1,6 @@
 // 全局常量：额度、session、标签。仅此一处定义，前后端共用。
 
-export const DEFAULT_DAILY_AI_LIMIT = 20;
+export const DEFAULT_DAILY_AI_LIMIT = 0;
 export const FALLBACK_GLOBAL_DAILY_AI_LIMIT = 200;
 export const SESSION_TTL_SECONDS = 7 * 24 * 3600; // 7 天
 export const SESSION_COOKIE_NAME = 'tq_session';

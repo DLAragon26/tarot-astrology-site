@@ -31,27 +31,25 @@ export const interpretRoutes = new Hono<{ Bindings: Env; Variables: { user: User
  */
 interpretRoutes.post('/', async (c) => {
   const user = c.get('user');
-  const isAdmin = user.role === 'admin';
-  const today = new Date();
   const dailyLimit = await getUserDailyLimit(c.env.DB, user.daily_ai_limit);
   const globalLimit = await getGlobalDailyLimit(c.env.DB, c.env);
 
-  // 个人额度（admin 无上限）
-  let usedToday = 0;
-  if (!isAdmin) {
-    usedToday = await getUserUsage(c.env.DB, user.id);
-    if (usedToday >= dailyLimit) {
-      return c.json(
-        {
-          error: {
-            code: ERR.QUOTA_USER,
-            message: `今日个人 AI 解读额度已用完（${usedToday}/${dailyLimit}），额度将于每日午夜（Asia/Shanghai）重置。`,
-          },
-          quota: { daily_limit: dailyLimit, used_today: usedToday, remaining: 0, global_limit: globalLimit, reset_at: resetAtISO() },
+  // 个人额度：所有角色都必须由管理员显式分配，0 额度不能调用 AI。
+  const usedToday = await getUserUsage(c.env.DB, user.id);
+  if (usedToday >= dailyLimit) {
+    return c.json(
+      {
+        error: {
+          code: ERR.QUOTA_USER,
+          message:
+            dailyLimit === 0
+              ? '管理员尚未为你分配 AI 解读额度，请联系管理员。'
+              : `今日个人 AI 解读额度已用完（${usedToday}/${dailyLimit}），额度将于每日午夜（Asia/Shanghai）重置。`,
         },
-        429
-      );
-    }
+        quota: { daily_limit: dailyLimit, used_today: usedToday, remaining: 0, global_limit: globalLimit, reset_at: resetAtISO() },
+      },
+      429
+    );
   }
 
   // 全局额度（admin 也占用，但 admin 个人不受限；全站上限始终生效）
@@ -98,25 +96,24 @@ interpretRoutes.post('/', async (c) => {
       topic_tag: topic,
     });
     const finalUsed = await getUserUsage(c.env.DB, user.id);
-    const finalLimit = isAdmin ? Number.POSITIVE_INFINITY : dailyLimit;
     return c.json({
       interpretation: content,
       model,
       quota: {
-        daily_limit: isAdmin ? null : dailyLimit,
+        daily_limit: dailyLimit,
         used_today: finalUsed,
-        remaining: isAdmin ? null : Math.max(Number(finalLimit) - finalUsed, 0),
+        remaining: Math.max(dailyLimit - finalUsed, 0),
       },
     });
   } catch (e) {
     await decrementUsage(c.env.DB, user.id);
     const detail = e instanceof AIUpstreamError ? e.detail : '未知错误';
+    console.error('AI upstream request failed:', detail);
     return c.json(
       {
         error: {
           code: ERR.AI_UPSTREAM,
           message: 'AI 解读服务暂时不可用，本次调用未计入额度。基础牌义仍可查看，请稍后重试。',
-          detail,
         },
       },
       502

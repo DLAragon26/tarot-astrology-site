@@ -135,7 +135,7 @@ describe('记录权限与校验', () => {
 
   it('非法牌阵/牌名/正逆位/空问题 → 400', async () => {
     const { adminCookie } = await setupAdmin(env, req);
-    await createMember(req, adminCookie, 'bob');
+    await createMember(req, adminCookie, 'bob', { daily_ai_limit: 1 });
     const cookie = await loginMember(env, 'bob');
     const headers = jsonHeaders(cookie);
 
@@ -224,14 +224,57 @@ describe('记录权限与校验', () => {
     const adminBody = (await adminRes.json()) as { scope: string };
     expect(adminBody.scope).toBe('all');
   });
+
+  it('记录列表按模式和主题在服务端筛选，并拒绝非法筛选值', async () => {
+    const { adminCookie } = await setupAdmin(env, req);
+    await createMember(req, adminCookie, 'frank_filter');
+    const cookie = await loginMember(env, 'frank_filter');
+
+    await req('/api/readings', {
+      method: 'POST',
+      headers: jsonHeaders(cookie),
+      body: JSON.stringify({ ...THREE_CARDS_PAYLOAD, mode: 'online', topic_tag: '事业' }),
+    });
+    await req('/api/readings', {
+      method: 'POST',
+      headers: jsonHeaders(cookie),
+      body: JSON.stringify({ ...THREE_CARDS_PAYLOAD, mode: 'offline', topic_tag: '感情' }),
+    });
+
+    const filtered = await req('/api/readings?mode=offline&topic=%E6%84%9F%E6%83%85', {
+      headers: { Cookie: cookie, ...ORIGIN },
+    });
+    const body = (await filtered.json()) as {
+      total: number;
+      items: { mode: string; topic_tag: string }[];
+    };
+    expect(filtered.status).toBe(200);
+    expect(body.total).toBe(1);
+    expect(body.items).toHaveLength(1);
+    expect(body.items[0]).toMatchObject({ mode: 'offline', topic_tag: '感情' });
+
+    const badMode = await req('/api/readings?mode=sideways', { headers: { Cookie: cookie, ...ORIGIN } });
+    expect(badMode.status).toBe(400);
+    const badTopic = await req('/api/readings?topic=not-a-tag', { headers: { Cookie: cookie, ...ORIGIN } });
+    expect(badTopic.status).toBe(400);
+  });
 });
 
 describe('AI 额度', () => {
-  it('member 额度耗尽 → 429 且不再调用 AI；admin 个人无上限', async () => {
+  it('默认 0 额度不可调用；分配后可调用，用尽后再次拒绝', async () => {
     const { adminCookie } = await setupAdmin(env, req);
+    const fetchMock = vi.mocked(globalThis.fetch);
+
+    const adminZero = await req('/api/interpret', {
+      method: 'POST',
+      headers: jsonHeaders(adminCookie),
+      body: JSON.stringify(THREE_CARDS_PAYLOAD),
+    });
+    expect(adminZero.status).toBe(429);
+    expect(fetchMock).not.toHaveBeenCalled();
+
     await createMember(req, adminCookie, 'frida', { daily_ai_limit: 2 });
     const frida = await loginMember(env, 'frida');
-    const fetchMock = vi.mocked(globalThis.fetch);
 
     for (let i = 0; i < 2; i++) {
       const res = await req('/api/interpret', {
@@ -263,20 +306,29 @@ describe('AI 额度', () => {
     });
     expect(badInput.status).toBe(429);
 
-    // admin 不受个人额度限制
+    // 管理员给自己分配额度后，与普通用户一样按额度使用。
+    const adminMe = await req('/api/me', { headers: { Cookie: adminCookie, ...ORIGIN } });
+    const adminId = ((await adminMe.json()) as { user: { id: string } }).user.id;
+    const allocateAdmin = await req(`/api/admin/users/${adminId}`, {
+      method: 'PATCH',
+      headers: jsonHeaders(adminCookie),
+      body: JSON.stringify({ daily_ai_limit: 1 }),
+    });
+    expect(allocateAdmin.status).toBe(200);
     const adminRes = await req('/api/interpret', {
       method: 'POST',
       headers: jsonHeaders(adminCookie),
       body: JSON.stringify(THREE_CARDS_PAYLOAD),
     });
     expect(adminRes.status).toBe(200);
-    const adminBody = (await adminRes.json()) as { quota: { daily_limit: number | null } };
-    expect(adminBody.quota.daily_limit).toBeNull();
+    const adminBody = (await adminRes.json()) as { quota: { daily_limit: number; remaining: number } };
+    expect(adminBody.quota.daily_limit).toBe(1);
+    expect(adminBody.quota.remaining).toBe(0);
   });
 
   it('全站额度耗尽 → 429 QUOTA_GLOBAL_EXCEEDED（对 admin 同样生效）', async () => {
     const { adminCookie } = await setupAdmin(env, req);
-    await createMember(req, adminCookie, 'gina');
+    await createMember(req, adminCookie, 'gina', { daily_ai_limit: 5 });
     const gina = await loginMember(env, 'gina');
     // 全站上限读 settings 表（运行时配置），改为 1
     await env.DB.prepare("UPDATE settings SET value = '1' WHERE key = 'global_daily_ai_limit'").run();
@@ -288,6 +340,13 @@ describe('AI 额度', () => {
     });
     expect(r1.status).toBe(200);
 
+    const adminMe = await req('/api/me', { headers: { Cookie: adminCookie, ...ORIGIN } });
+    const adminId = ((await adminMe.json()) as { user: { id: string } }).user.id;
+    await req(`/api/admin/users/${adminId}`, {
+      method: 'PATCH',
+      headers: jsonHeaders(adminCookie),
+      body: JSON.stringify({ daily_ai_limit: 1 }),
+    });
     const r2 = await req('/api/interpret', {
       method: 'POST',
       headers: jsonHeaders(adminCookie),
@@ -313,6 +372,7 @@ describe('AI 额度', () => {
     const body = (await res.json()) as { error: { code: string; message: string } };
     expect(body.error.code).toBe('AI_UPSTREAM_ERROR');
     expect(body.error.message).toContain('未计入额度');
+    expect((body.error as { detail?: string }).detail).toBeUndefined();
 
     // 额度已退还，重试可用
     vi.stubGlobal('fetch', vi.fn(async () => new Response(aiOkResponse('恢复了'), { status: 200 })));
@@ -334,8 +394,8 @@ describe('AI 额度', () => {
     const body = (await res.json()) as {
       quota: { daily_limit: number; remaining: number; reset_at: string; global_limit: number };
     };
-    expect(body.quota.daily_limit).toBe(20);
-    expect(body.quota.remaining).toBe(20);
+    expect(body.quota.daily_limit).toBe(0);
+    expect(body.quota.remaining).toBe(0);
     expect(body.quota.global_limit).toBe(200);
     expect(() => new Date(body.quota.reset_at).toISOString()).not.toThrow();
   });
@@ -346,7 +406,8 @@ describe('邀请码闭环与管理员操作', () => {
     const { adminCookie } = await setupAdmin(env, req);
     const created = await req('/api/admin/invite-codes', { method: 'POST', headers: jsonHeaders(adminCookie) });
     expect(created.status).toBe(201);
-    const { invite_code } = (await created.json()) as { invite_code: { code: string } };
+    const { invite_code } = (await created.json()) as { invite_code: { code: string; expires_at: string } };
+    expect(invite_code.expires_at).toBeTruthy();
 
     const redeemed = await req('/api/redeem', {
       method: 'POST',
@@ -380,9 +441,93 @@ describe('邀请码闭环与管理员操作', () => {
     expect(loginRes.status).toBe(200);
 
     const list = await req('/api/admin/invite-codes', { headers: { Cookie: adminCookie, ...ORIGIN } });
-    const listBody = (await list.json()) as { invite_codes: { code: string; status: string; redeemed_by: string }[] };
+    const listBody = (await list.json()) as {
+      invite_codes: { code: string; status: string; redeemed_by: string; expires_at: string }[];
+    };
     expect(listBody.invite_codes[0].status).toBe('redeemed');
     expect(listBody.invite_codes[0].redeemed_by).toBe('guest_one');
+    expect(listBody.invite_codes[0].expires_at).toBe(invite_code.expires_at);
+  });
+
+  it('邀请码可撤销，撤销后不能兑换', async () => {
+    const { adminCookie } = await setupAdmin(env, req);
+    const created = await req('/api/admin/invite-codes', { method: 'POST', headers: jsonHeaders(adminCookie) });
+    const { invite_code } = (await created.json()) as { invite_code: { code: string } };
+
+    const revoked = await req(`/api/admin/invite-codes/${invite_code.code}`, {
+      method: 'PATCH',
+      headers: jsonHeaders(adminCookie),
+      body: JSON.stringify({ action: 'revoke' }),
+    });
+    expect(revoked.status).toBe(200);
+
+    const redeem = await req('/api/redeem', {
+      method: 'POST',
+      headers: jsonHeaders(),
+      body: JSON.stringify({
+        invite_code: invite_code.code,
+        site_access_key: 'test-site-key',
+        username: 'revoked_guest',
+        password: 'revoked-pw-123456',
+      }),
+    });
+    expect(redeem.status).toBe(400);
+  });
+
+  it('同一邀请码并发兑换时只能成功一次', async () => {
+    const { adminCookie } = await setupAdmin(env, req);
+    const created = await req('/api/admin/invite-codes', { method: 'POST', headers: jsonHeaders(adminCookie) });
+    const { invite_code } = (await created.json()) as { invite_code: { code: string } };
+    const redeemBody = (username: string) => ({
+      invite_code: invite_code.code,
+      site_access_key: 'test-site-key',
+      username,
+      password: 'concurrent-pw-123456',
+    });
+
+    const [first, second] = await Promise.all([
+      req('/api/redeem', {
+        method: 'POST',
+        headers: jsonHeaders(),
+        body: JSON.stringify(redeemBody('race_guest_one')),
+      }),
+      req('/api/redeem', {
+        method: 'POST',
+        headers: jsonHeaders(),
+        body: JSON.stringify(redeemBody('race_guest_two')),
+      }),
+    ]);
+    expect([first.status, second.status].sort()).toEqual([201, 400]);
+
+    const users = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM users WHERE username IN ('race_guest_one', 'race_guest_two')"
+    ).first<{ n: number }>();
+    expect(users?.n).toBe(1);
+  });
+
+  it('过期邀请码不能兑换，并在管理列表中显示 expired', async () => {
+    const { adminCookie } = await setupAdmin(env, req);
+    const created = await req('/api/admin/invite-codes', { method: 'POST', headers: jsonHeaders(adminCookie) });
+    const { invite_code } = (await created.json()) as { invite_code: { code: string } };
+    await env.DB.prepare("UPDATE invite_codes SET expires_at = '2000-01-01T00:00:00.000Z' WHERE code = ?")
+      .bind(invite_code.code)
+      .run();
+
+    const redeem = await req('/api/redeem', {
+      method: 'POST',
+      headers: jsonHeaders(),
+      body: JSON.stringify({
+        invite_code: invite_code.code,
+        site_access_key: 'test-site-key',
+        username: 'expired_guest',
+        password: 'expired-pw-123456',
+      }),
+    });
+    expect(redeem.status).toBe(400);
+
+    const list = await req('/api/admin/invite-codes', { headers: { Cookie: adminCookie, ...ORIGIN } });
+    const listBody = (await list.json()) as { invite_codes: { code: string; status: string }[] };
+    expect(listBody.invite_codes.find((c) => c.code === invite_code.code)?.status).toBe('expired');
   });
 
   it('redeem 拒绝错误站点密钥与弱密码', async () => {

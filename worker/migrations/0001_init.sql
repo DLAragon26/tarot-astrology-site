@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
   username TEXT NOT NULL UNIQUE COLLATE NOCASE,
   password_hash TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('admin', 'member')),
-  daily_ai_limit INTEGER,               -- NULL = 使用默认 20
+  daily_ai_limit INTEGER,               -- NULL = 使用默认 0，由管理员显式分配
   is_active INTEGER NOT NULL DEFAULT 1,
   must_change_password INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,

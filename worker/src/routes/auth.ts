@@ -109,9 +109,14 @@ authRoutes.post('/redeem', async (c) => {
   const invite = await c.env.DB.prepare('SELECT * FROM invite_codes WHERE code = ?').bind(code).first<{
     code: string;
     status: string;
+    expires_at: string | null;
   }>();
-  if (!invite || invite.status !== 'active') {
-    return c.json({ error: { code: ERR.VALIDATION, message: '邀请码无效或已被使用' } }, 400);
+  if (
+    !invite ||
+    invite.status !== 'active' ||
+    (invite.expires_at !== null && Date.parse(invite.expires_at) <= Date.now())
+  ) {
+    return c.json({ error: { code: ERR.VALIDATION, message: '邀请码无效、已过期或已被使用' } }, 400);
   }
   const existing = await c.env.DB.prepare('SELECT id FROM users WHERE username = ?').bind(username).first();
   if (existing) {
@@ -124,17 +129,22 @@ authRoutes.post('/redeem', async (c) => {
   const hash = await hashPassword(password);
   const stmts = [
     c.env.DB.prepare(
+      `UPDATE invite_codes SET status = 'redeemed', redeemed_at = ?
+       WHERE code = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > ?)`
+    ).bind(ts, code, ts),
+    c.env.DB.prepare(
       `INSERT INTO users (id, username, password_hash, role, daily_ai_limit, is_active, must_change_password, created_at, updated_at)
-       VALUES (?, ?, ?, 'member', NULL, 1, 0, ?, ?)`
+       SELECT ?, ?, ?, 'member', NULL, 1, 0, ?, ? WHERE changes() = 1`
     ).bind(id, username, hash, ts, ts),
     c.env.DB.prepare(
-      `UPDATE invite_codes SET status = 'redeemed', redeemed_by = ?, redeemed_at = ? WHERE code = ? AND status = 'active'`
-    ).bind(id, ts, code),
+      `UPDATE invite_codes SET redeemed_by = ?
+       WHERE code = ? AND status = 'redeemed' AND redeemed_at = ? AND changes() = 1`
+    ).bind(id, code, ts),
   ];
   const results = await c.env.DB.batch(stmts);
-  const redeemed = results[1]?.success ?? false;
-  if (!redeemed) {
-    return c.json({ error: { code: ERR.CONFLICT, message: '邀请码无效或已被使用' } }, 400);
+  const userInserted = Number(results[1]?.meta?.changes ?? 0) === 1;
+  if (!userInserted) {
+    return c.json({ error: { code: ERR.CONFLICT, message: '邀请码无效、已过期或已被使用' } }, 400);
   }
   const cookieValue = await createSession(c.env.DB, c.env, id);
   c.header('Set-Cookie', sessionCookieHeader(c.env, cookieValue));

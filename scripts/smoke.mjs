@@ -6,60 +6,34 @@
 // 用法：node scripts/smoke.mjs   （退出码 0 = 全绿）
 import { spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import http from 'node:http';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const workerDir = path.join(root, 'worker');
-const devVarsPath = path.join(workerDir, '.dev.vars');
 const STUB_PORT = 8788;
 const API = 'http://127.0.0.1:8787';
+const persistDir = mkdtempSync(path.join(tmpdir(), 'tarot-smoke-'));
 
-// ---------- 1. .dev.vars（仅本地，gitignored） ----------
-if (!existsSync(devVarsPath)) {
-  const siteKey = randomBytes(16).toString('hex');
-  const adminPw = randomBytes(12).toString('hex');
-  const sessionSecret = randomBytes(32).toString('hex');
-  writeFileSync(
-    devVarsPath,
-    [
-      `API_BASE_URL=http://127.0.0.1:${STUB_PORT}/v1`,
-      'MODEL_NAME=stub-model',
-      'API_KEY=stub-placeholder-not-a-real-key',
-      'MAX_TOKENS=300',
-      'TEMPERATURE=0.5',
-      `SITE_ACCESS_KEY=${siteKey}`,
-      `SESSION_SECRET=${sessionSecret}`,
-      `ADMIN_INITIAL_PASSWORD=${adminPw}`,
-      'GLOBAL_DAILY_AI_LIMIT=200',
-      'ALLOWED_ORIGINS=http://localhost:4321',
-      'COOKIE_SECURE=false',
-      '',
-    ].join('\n')
-  );
-  console.log('[setup] generated worker/.dev.vars with random local secrets (values not printed)');
-}
-
-function parseDevVars(text) {
-  const out = {};
-  for (const line of text.split('\n')) {
-    const t = line.trim();
-    if (!t || t.startsWith('#')) continue;
-    const i = t.indexOf('=');
-    if (i < 0) continue;
-    out[t.slice(0, i).trim()] = t.slice(i + 1).trim();
-  }
-  return out;
-}
-const vars = parseDevVars(readFileSync(devVarsPath, 'utf8'));
-for (const required of ['SITE_ACCESS_KEY', 'ADMIN_INITIAL_PASSWORD', 'SESSION_SECRET']) {
-  if (!vars[required]) {
-    console.error(`[setup] worker/.dev.vars missing ${required}`);
-    process.exit(2);
-  }
-}
+// 所有运行值只存在于当前进程；D1 使用独立临时目录，绝不触碰 worker/.dev.vars 或本地开发数据。
+const vars = {
+  API_BASE_URL: `http://127.0.0.1:${STUB_PORT}/v1`,
+  MODEL_NAME: 'stub-model',
+  API_KEY: 'stub-placeholder-not-a-real-key',
+  MAX_TOKENS: '300',
+  TEMPERATURE: '0.5',
+  SITE_ACCESS_KEY: randomBytes(16).toString('hex'),
+  SESSION_SECRET: randomBytes(32).toString('hex'),
+  ADMIN_INITIAL_PASSWORD: randomBytes(12).toString('hex'),
+  GLOBAL_DAILY_AI_LIMIT: '200',
+  ALLOWED_ORIGINS: 'http://localhost:4321',
+  COOKIE_SECURE: 'false',
+};
+const wranglerVarArgs = Object.entries(vars).flatMap(([key, value]) => ['--var', `${key}:${value}`]);
+console.log(`[setup] isolated smoke state: ${persistDir}`);
 
 // ---------- 2. AI stub ----------
 let stubMode = 'ok';
@@ -98,24 +72,32 @@ await new Promise((resolve, reject) => {
 console.log(`[stub] listening on http://127.0.0.1:${STUB_PORT}`);
 
 // ---------- 3. 干净本地 D1 + migration ----------
-rmSync(path.join(workerDir, '.wrangler/state/v3/d1'), { recursive: true, force: true });
-const mig = spawnSync('npx', ['wrangler', 'd1', 'migrations', 'apply', 'tarot-astrology', '--local'], {
-  cwd: workerDir,
-  encoding: 'utf8',
-  env: { ...process.env, CI: '1' },
-});
+const mig = spawnSync(
+  'npx',
+  ['wrangler', 'd1', 'migrations', 'apply', 'tarot-astrology', '--local', '--persist-to', persistDir],
+  {
+    cwd: workerDir,
+    encoding: 'utf8',
+    env: { ...process.env, CI: '1' },
+  }
+);
 if (mig.status !== 0) {
   console.error('[migrate] failed:\n' + (mig.stdout ?? '') + (mig.stderr ?? ''));
+  rmSync(persistDir, { recursive: true, force: true });
   process.exit(2);
 }
-console.log('[migrate] local D1 migrated (0001_init.sql)');
+console.log('[migrate] isolated local D1 migrated (all migrations)');
 
 // ---------- 4. wrangler dev ----------
-const dev = spawn('npx', ['wrangler', 'dev', '--port', '8787', '--ip', '127.0.0.1', '--local'], {
-  cwd: workerDir,
-  env: { ...process.env, CI: '1' },
-  stdio: ['ignore', 'pipe', 'pipe'],
-});
+const dev = spawn(
+  'npx',
+  ['wrangler', 'dev', '--port', '8787', '--ip', '127.0.0.1', '--local', '--persist-to', persistDir, ...wranglerVarArgs],
+  {
+    cwd: workerDir,
+    env: { ...process.env, CI: '1' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }
+);
 let devLog = '';
 dev.stdout.on('data', (d) => (devLog += d.toString()));
 dev.stderr.on('data', (d) => (devLog += d.toString()));
@@ -142,6 +124,7 @@ if (!healthOk) {
   console.error('[dev] wrangler dev failed to become healthy in 180s. tail:\n' + devLog.slice(-2000));
   dev.kill('SIGTERM');
   stub.close();
+  rmSync(persistDir, { recursive: true, force: true });
   process.exit(2);
 }
 console.log('[dev] worker healthy on http://127.0.0.1:8787');
@@ -207,14 +190,28 @@ try {
   const me = await api('/api/me', { cookie: adminCookie });
   check('/api/me 返回 admin', me.status === 200 && me.json?.user?.role === 'admin');
 
-  // 3. interpret 成功 + 额度消耗
+  // 3. 管理员默认 0 额度；分配后才可调用
+  const initialQuota = await api('/api/quota', { cookie: adminCookie });
+  check('admin 初始额度为 0', initialQuota.status === 200 && initialQuota.json?.quota?.daily_limit === 0);
+  const adminBlocked = await api('/api/interpret', { method: 'POST', cookie: adminCookie, body: threeCards });
+  check('admin 0 额度调用 AI → 429', adminBlocked.status === 429 && adminBlocked.json?.error?.code === 'QUOTA_USER_EXCEEDED');
+  check('0 额度时 AI stub 未收到请求', stubCount === 0);
+  const adminId = me.json?.user?.id;
+  const allocateAdmin = await api(`/api/admin/users/${adminId}`, {
+    method: 'PATCH',
+    cookie: adminCookie,
+    body: { daily_ai_limit: 10 },
+  });
+  check('管理员给自己分配 10 次额度', allocateAdmin.status === 200 && allocateAdmin.json?.user?.daily_ai_limit === 10);
+
+  // 4. interpret 成功 + 额度消耗
   const interp1 = await api('/api/interpret', { method: 'POST', cookie: adminCookie, body: threeCards });
   check('admin /api/interpret 200', interp1.status === 200 && interp1.json?.interpretation === STUB_TEXT);
   check('解读后 admin 额度 used_today = 1', interp1.json?.quota?.used_today === 1);
   const quota1 = await api('/api/quota', { cookie: adminCookie });
   check('/api/quota 反映已用 1 次', quota1.json?.quota?.used_today === 1);
 
-  // 4. readings CRUD（admin 自己的记录）
+  // 5. readings CRUD（admin 自己的记录）
   const created = await api('/api/readings', {
     method: 'POST',
     cookie: adminCookie,
@@ -240,7 +237,7 @@ try {
   const afterDel = await api(`/api/readings/${adminReadingId}`, { cookie: adminCookie });
   check('删除记录 200 且再读 404', del.status === 200 && afterDel.status === 404);
 
-  // 5. 建 member + 登录
+  // 6. 建 member + 登录
   const mk = await api('/api/admin/users', {
     method: 'POST',
     cookie: adminCookie,
@@ -253,7 +250,7 @@ try {
   check('member 登录 200', memberLogin.status === 200 && memberLogin.cookie.length > 20);
   const memberCookie = memberLogin.cookie;
 
-  // 6. 越权
+  // 7. 越权
   const adminApiAsMember = await api('/api/admin/users', { cookie: memberCookie });
   check('member 访问 /api/admin/users → 403', adminApiAsMember.status === 403);
 
@@ -262,7 +259,7 @@ try {
   const steal = await api(`/api/readings/${adminReadingId2}`, { cookie: memberCookie });
   check('member 读 admin 的记录 → 404', steal.status === 404);
 
-  // 7. 调额度到 3
+  // 8. 调额度到 3
   const limit = await api(`/api/admin/users/${memberId}`, {
     method: 'PATCH',
     cookie: adminCookie,
@@ -270,13 +267,13 @@ try {
   });
   check('管理员把 member 额度调为 3', limit.status === 200 && limit.json?.user?.daily_ai_limit === 3);
 
-  // 8. member 前两次解读成功
+  // 9. member 前两次解读成功
   const m1 = await api('/api/interpret', { method: 'POST', cookie: memberCookie, body: threeCards });
   const m2 = await api('/api/interpret', { method: 'POST', cookie: memberCookie, body: threeCards });
   check('member 第 1/2 次解读 200', m1.status === 200 && m2.status === 200);
   check('member used_today = 2', m2.json?.quota?.used_today === 2);
 
-  // 9. AI 失败 → 明确错误、无伪解读、额度不扣减
+  // 10. AI 失败 → 明确错误、无伪解读、额度不扣减
   stubMode = 'fail';
   const mFail = await api('/api/interpret', { method: 'POST', cookie: memberCookie, body: threeCards });
   check('AI 上游失败 → 502 AI_UPSTREAM_ERROR', mFail.status === 502 && mFail.json?.error?.code === 'AI_UPSTREAM_ERROR');
@@ -284,7 +281,7 @@ try {
   const qAfterFail = await api('/api/quota', { cookie: memberCookie });
   check('失败不扣额度（used_today 仍为 2）', qAfterFail.json?.quota?.used_today === 2);
 
-  // 10. stub 恢复 → 第 3 次成功 → 额度用尽
+  // 11. stub 恢复 → 第 3 次成功 → 额度用尽
   stubMode = 'ok';
   const m3 = await api('/api/interpret', { method: 'POST', cookie: memberCookie, body: threeCards });
   check('恢复后第 3 次解读 200（used 3）', m3.status === 200 && m3.json?.quota?.used_today === 3);
@@ -294,7 +291,7 @@ try {
   check('第 4 次额度耗尽 → 429 QUOTA_USER_EXCEEDED', m4.status === 429 && m4.json?.error?.code === 'QUOTA_USER_EXCEEDED');
   check('额度耗尽后 stub 未收到新请求', stubCount === countBefore, `stubCount ${countBefore} → ${stubCount}`);
 
-  // 11. 邀请码闭环
+  // 12. 邀请码闭环
   const inv = await api('/api/admin/invite-codes', { method: 'POST', cookie: adminCookie });
   const code = inv.json?.invite_code?.code;
   check('管理员生成邀请码 201', inv.status === 201 && !!code);
@@ -306,8 +303,10 @@ try {
   check('邀请码 redeem 201 并登录态签发', redeemed.status === 201 && guestCookie.length > 20);
   const guestMe = await api('/api/me', { cookie: guestCookie });
   check('邀请码用户 /api/me 200 member', guestMe.status === 200 && guestMe.json?.user?.role === 'member');
+  const guestQuota = await api('/api/quota', { cookie: guestCookie });
+  check('邀请码用户初始额度为 0', guestQuota.status === 200 && guestQuota.json?.quota?.daily_limit === 0);
 
-  // 12. 全站统计
+  // 13. 全站统计
   // 注：admin 的第一条记录在 CRUD 用例里被删，现存 1 条（admin 第二条）→ total_readings >= 1
   const adminStats = await api('/api/admin/stats', { cookie: adminCookie });
   check(
@@ -322,6 +321,7 @@ try {
 } finally {
   dev.kill('SIGTERM');
   stub.close();
+  rmSync(persistDir, { recursive: true, force: true });
 }
 
 const failed = results.filter((r) => !r.ok);

@@ -5,6 +5,13 @@ import Base from '../layouts/Base.astro';
 <Base title="历史记录 · 塔罗与星座" active="history">
   <h1>历史记录</h1>
   <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;">
+    <div style="flex:1; min-width:140px;" id="scope-wrap" hidden>
+      <label class="field" for="filter-scope">记录范围</label>
+      <select id="filter-scope">
+        <option value="self">我的记录</option>
+        <option value="all">全站记录</option>
+      </select>
+    </div>
     <div style="flex:1; min-width:140px;">
       <label class="field" for="filter-mode">模式</label>
       <select id="filter-mode">

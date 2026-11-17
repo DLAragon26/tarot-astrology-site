@@ -23,6 +23,7 @@
     "assets:gen": "node scripts/gen-placeholders.mjs && node scripts/gen-zodiac-svgs.mjs",
     "cards:assets": "node scripts/gen-card-assets.mjs",
     "cards:assets:check": "node scripts/gen-card-assets.mjs --check",
+    "cards:import": "node scripts/import-card-pngs.mjs",
     "check:base": "node scripts/check-base-links.mjs",
     "build:pages": "PUBLIC_BASE_PATH=/tarot-astrology-site SITE_URL=https://USERNAME.github.io PUBLIC_API_BASE_URL=${PUBLIC_API_BASE_URL:-http://localhost:8787} npm run build --workspace @tarot/web",
     "cards:download": "node scripts/download-cards.mjs",

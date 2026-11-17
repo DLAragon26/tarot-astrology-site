@@ -21,7 +21,7 @@ npx wrangler d1 create tarot-astrology
 npx wrangler d1 migrations apply tarot-astrology --remote
 ```
 
-D1 里只有表结构和 `settings` 基础配置（全站额度默认 200），没有任何用户数据。
+D1 里只有表结构、邀请码有效期字段、用户默认 0 额度迁移和 `settings` 基础配置（全站额度默认 200），没有任何用户数据。后续迁移使用同一命令自动按文件名顺序应用。
 
 ## 2. 配置 Secrets
 
@@ -87,15 +87,16 @@ curl https://<worker地址>/api/health   # {"ok":true}
 4. push 到 `main` 触发部署；Actions 全绿后访问 `https://USERNAME.github.io/<repo>/`。
 5. 回到 Worker 配置，确认 `ALLOWED_ORIGINS` 包含该域名（否则浏览器会被 CORS 拒绝）。
 
-## 7. 牌面图像（可选但推荐）
+## 7. 牌面图像
 
-仓库内已含极简占位 SVG，无网络也能跑。下载真实 Rider-Waite 图：
+仓库已包含 78 张 Rider-Waite WebP、占位 SVG 和来源清单，部署时无需联网下载。校验资产：
 
 ```bash
-npm run cards:download   # Wikimedia Commons 公有领域，压成 WebP
-npm run cards:verify     # 校验 78 张齐全
-git add web/public/cards && git commit -m "assets: rider-waite webp"
+npm run cards:verify
+npm run cards:assets:check
 ```
+
+如需重新获取官方图，Node 直连 Wikimedia 可用时运行 `npm run cards:download`；仅能通过浏览器下载时，将 78 张 PNG 放入同一目录后运行 `npm run cards:import -- --from <目录>`。
 
 ## 8. 验证清单
 
@@ -104,7 +105,9 @@ git add web/public/cards && git commit -m "assets: rider-waite webp"
 - [ ] 抽牌 → AI 解读 → 保存 → 历史可见
 - [ ] 成员看不到「管理」入口；直接调 `/api/admin/*` 返回 403
 - [ ] 额度耗尽时 AI 解读返回明确原因（429）
+- [ ] 新管理员、新成员和邀请码用户初始额度均为 0
 - [ ] `npm run check`、`npm test`、`npm run build` 全绿
+- [ ] CI 的 typecheck/secret-scan 与测试步骤均为绿色
 
 ## 附录：API 端点总表（与 worker/src 实际路由一致）
 
@@ -117,7 +120,7 @@ git add web/public/cards && git commit -m "assets: rider-waite webp"
 | POST | `/api/logout` | 公开 | 吊销当前 session |
 | POST | `/api/redeem` | 公开 | 邀请码 + 站点密钥 + 用户名 + 自设密码 |
 | GET | `/api/me` | 登录 | 当前用户信息 |
-| GET | `/api/readings` | 登录 | 列表；`?scope=all` 仅 admin 生效 |
+| GET | `/api/readings` | 登录 | 列表；`?scope=all` 仅 admin 生效，可按 `mode`、`topic` 服务端筛选 |
 | POST | `/api/readings` | 登录 | 新建记录（含可选 ai_interpretation） |
 | GET | `/api/readings/:id` | 登录 | 本人或 admin，否则 404 |
 | PATCH | `/api/readings/:id` | 登录 | 改问题/备注/标签；本人或 admin |
@@ -130,6 +133,7 @@ git add web/public/cards && git commit -m "assets: rider-waite webp"
 | PATCH | `/api/admin/users/:id` | admin | 角色/额度/启停/重置密码；不能改自己的角色或停用自己 |
 | GET | `/api/admin/invite-codes` | admin | 邀请码列表与状态 |
 | POST | `/api/admin/invite-codes` | admin | 生成一次性邀请码 |
+| PATCH | `/api/admin/invite-codes/:code` | admin | 撤销仍有效的邀请码 |
 | GET | `/api/admin/stats` | admin | 全站统计、各用户用量、邀请码 |
 
 ## 9. 常见问题

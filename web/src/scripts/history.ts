@@ -8,9 +8,12 @@ const moreBtn = document.getElementById('more-btn') as HTMLButtonElement;
 const errBox = document.getElementById('err') as HTMLDivElement;
 const filterMode = document.getElementById('filter-mode') as HTMLSelectElement;
 const filterTopic = document.getElementById('filter-topic') as HTMLSelectElement;
+const filterScope = document.getElementById('filter-scope') as HTMLSelectElement;
+const scopeWrap = document.getElementById('scope-wrap') as HTMLDivElement;
 
 let offset = 0;
 let exhausted = false;
+let requestSeq = 0;
 const allReadings: Reading[] = [];
 for (const t of TOPIC_TAGS) filterTopic.appendChild(new Option(t, t));
 
@@ -21,11 +24,20 @@ async function load(reset: boolean): Promise<void> {
     allReadings.length = 0;
     list.innerHTML = '';
   }
+  const seq = ++requestSeq;
   errBox.hidden = true;
   try {
+    const params = new URLSearchParams({
+      limit: '20',
+      offset: String(offset),
+      scope: filterScope.value,
+    });
+    if (filterMode.value) params.set('mode', filterMode.value);
+    if (filterTopic.value) params.set('topic', filterTopic.value);
     const res = await api<{ items: Reading[]; total: number }>(
-      `/api/readings?limit=20&offset=${offset}`
+      `/api/readings?${params.toString()}`
     );
+    if (seq !== requestSeq) return;
     allReadings.push(...res.items);
     offset += res.items.length;
     exhausted = allReadings.length >= res.total;
@@ -34,16 +46,6 @@ async function load(reset: boolean): Promise<void> {
     errBox.textContent = err instanceof ApiError ? err.message : '加载失败';
     errBox.hidden = false;
   }
-}
-
-function visible(): Reading[] {
-  const mode = filterMode.value;
-  const topic = filterTopic.value;
-  return allReadings.filter((r) => {
-    if (mode && r.mode !== mode) return false;
-    if (topic && r.topic_tag !== topic) return false;
-    return true;
-  });
 }
 
 function readingCard(r: Reading): HTMLElement {
@@ -119,9 +121,7 @@ function readingCard(r: Reading): HTMLElement {
     }
     try {
       await api(`/api/readings/${r.id}`, { method: 'DELETE' });
-      const idx = allReadings.findIndex((x) => x.id === r.id);
-      if (idx >= 0) allReadings.splice(idx, 1);
-      render();
+      void load(true);
     } catch (err) {
       errBox.textContent = err instanceof ApiError ? err.message : '删除失败';
       errBox.hidden = false;
@@ -154,13 +154,23 @@ function readingCard(r: Reading): HTMLElement {
 
 function render(): void {
   list.innerHTML = '';
-  const items = visible();
-  empty.hidden = items.length > 0;
-  for (const r of items) list.appendChild(readingCard(r));
+  empty.textContent = filterMode.value || filterTopic.value ? '没有符合筛选条件的记录。' : '还没有记录。';
+  empty.hidden = allReadings.length > 0;
+  for (const r of allReadings) list.appendChild(readingCard(r));
   moreBtn.hidden = exhausted;
 }
 
-filterMode.addEventListener('change', () => render());
-filterTopic.addEventListener('change', () => render());
+filterMode.addEventListener('change', () => void load(true));
+filterTopic.addEventListener('change', () => void load(true));
+filterScope.addEventListener('change', () => void load(true));
 moreBtn.addEventListener('click', () => void load(false));
+
+api<{ user: { role: string } }>('/api/me')
+  .then(({ user }) => {
+    scopeWrap.hidden = user.role !== 'admin';
+  })
+  .catch(() => {
+    /* api 会在 401 时统一跳转登录页 */
+  });
+
 void load(true);

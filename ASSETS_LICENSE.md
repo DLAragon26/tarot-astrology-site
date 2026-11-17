@@ -6,7 +6,7 @@
 - **版权状态**：该作品于 1909 年出版，作者（Smith 1951 年逝世）创作年代远早于适用保护期，已进入**公有领域**（Public Domain）。
 - **图源**：Wikimedia Commons「Rider-Waite tarot deck」分类：
   https://commons.wikimedia.org/wiki/Category:Rider-Waite_tarot_deck
-- **获取方式**：`npm run cards:download`（scripts/download-cards.mjs）经 Commons API 列出分类成员，按稳定 ID 下载并压缩为 WebP（宽 480px，质量 80），命名规则 `rw-<NN>-<slug>.webp`，与 `shared/src/cards.ts` 中的数据一一对应。
+- **获取方式**：优先使用 `npm run cards:download` 经 Commons API 下载；网络只能通过浏览器访问时，使用 `npm run cards:import -- --from <目录>` 导入官方 PNG。两种方式都会压缩为 WebP（宽 480px，质量 80），命名规则 `rw-<NN>-<slug>.webp`，与 `shared/src/cards.ts` 中的数据一一对应。
 - **具体文件对应关系**：见 `scripts/card-sources.json`（下载脚本自动生成，记录每张 webp 对应的 Commons 文件名）。
 - **使用方式**：图片已随仓库静态分发（不热链外部地址）；加载失败时回退到自制占位 SVG（`web/public/cards/placeholders/`）。
 
