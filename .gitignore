@@ -6,6 +6,7 @@ dist/
 
 # 真实环境变量与密钥（样例 *.example 保留）
 .dev.vars
+.deploy-credentials*
 .env
 .env.local
 .env.production

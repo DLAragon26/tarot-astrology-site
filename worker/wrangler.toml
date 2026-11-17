@@ -10,7 +10,7 @@ compatibility_date = "2025-07-18"
 [[d1_databases]]
 binding = "DB"
 database_name = "tarot-astrology"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "b6b8151b-d932-44b9-81a9-ae6d97c7e2c8"
 migrations_dir = "migrations"
 
 # 非敏感变量。敏感值（API_KEY / SITE_ACCESS_KEY / SESSION_SECRET / ADMIN_INITIAL_PASSWORD）
@@ -18,5 +18,5 @@ migrations_dir = "migrations"
 [vars]
 GLOBAL_DAILY_AI_LIMIT = "200"
 # 部署后改为你的 GitHub Pages 域名，如 "https://USERNAME.github.io,https://tarot-astrology-api.<subdomain>.workers.dev"
-ALLOWED_ORIGINS = "http://localhost:4321"
+ALLOWED_ORIGINS = "https://dlaragon26.github.io"
 COOKIE_SECURE = "true"
