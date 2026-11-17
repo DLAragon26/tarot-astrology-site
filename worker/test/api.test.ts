@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PBKDF2_ITERATIONS } from '../src/auth';
 import type { Env } from '../src/env';
 import {
   aiOkResponse,
@@ -35,6 +36,10 @@ afterEach(() => {
 });
 
 describe('认证与未登录防护', () => {
+  it('PBKDF2 迭代数不超过 Cloudflare Workers WebCrypto 上限', () => {
+    expect(PBKDF2_ITERATIONS).toBeLessThanOrEqual(100000);
+  });
+
   it('未登录访问 readings/interpret/quota/stats 一律 401', async () => {
     const cases: [string, RequestInit][] = [
       ['/api/readings', { method: 'GET' }],
@@ -86,7 +91,9 @@ describe('认证与未登录防护', () => {
       headers: jsonHeaders(),
       body: JSON.stringify(ADMIN_LOGIN),
     });
-    expect(res2.headers.get('Set-Cookie')).toContain('Secure');
+    const setCookie2 = res2.headers.get('Set-Cookie') ?? '';
+    expect(setCookie2).toContain('SameSite=None');
+    expect(setCookie2).toContain('Secure');
   });
 
   it('logout 吊销会话', async () => {

@@ -2,7 +2,7 @@ import { SESSION_COOKIE_NAME, SESSION_TTL_SECONDS } from '@tarot/shared';
 import type { Context, MiddlewareHandler } from 'hono';
 import type { Env } from './env';
 
-// 密码与 session。密码哈希：PBKDF2-SHA256（120k 迭代、16B salt、32B 派生键），
+// 密码与 session。密码哈希：PBKDF2-SHA256（100k 迭代、16B salt、32B 派生键），
 // Workers WebCrypto 原生可跑。session token 只在 D1 存 SHA-256 摘要，
 // cookie 值 = token + '.' + HMAC-SHA256(token, SESSION_SECRET)。
 
@@ -45,7 +45,8 @@ async function pbkdf2(password: string, salt: Uint8Array, iterations: number): P
   return new Uint8Array(bits);
 }
 
-export const PBKDF2_ITERATIONS = 120000;
+/** Cloudflare Workers WebCrypto 当前允许的 PBKDF2 最大迭代数。 */
+export const PBKDF2_ITERATIONS = 100000;
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -139,14 +140,15 @@ function readCookie(request: Request, name: string): string | undefined {
 
 export function sessionCookieHeader(env: Env, value: string): string {
   const secure = (env.COOKIE_SECURE ?? 'true') !== 'false';
-  const attrs = [`HttpOnly`, `SameSite=Lax`, `Path=/`, `Max-Age=${SESSION_TTL_SECONDS}`];
+  // GitHub Pages 与 workers.dev 属于不同站点，生产必须用 SameSite=None。
+  const attrs = [`HttpOnly`, `SameSite=${secure ? 'None' : 'Lax'}`, `Path=/`, `Max-Age=${SESSION_TTL_SECONDS}`];
   if (secure) attrs.push('Secure');
   return `${SESSION_COOKIE_NAME}=${value}; ${attrs.join('; ')}`;
 }
 
 export function clearCookieHeader(env: Env): string {
   const secure = (env.COOKIE_SECURE ?? 'true') !== 'false';
-  const attrs = [`HttpOnly`, `SameSite=Lax`, `Path=/`, `Max-Age=0`];
+  const attrs = [`HttpOnly`, `SameSite=${secure ? 'None' : 'Lax'}`, `Path=/`, `Max-Age=0`];
   if (secure) attrs.push('Secure');
   return `${SESSION_COOKIE_NAME}=; ${attrs.join('; ')}`;
 }

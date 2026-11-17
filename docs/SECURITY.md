@@ -23,9 +23,9 @@
 - 登录必须输入站点访问密钥 + 用户名 + 密码；任一错误返回同一句 401 文案，不泄露是哪一项错。
 - 无公开注册。账号只能由管理员创建，或用管理员生成的一次性邀请码激活。
 - 邀请码默认 7 天有效、仅可使用一次，管理员可在到期前撤销。
-- 密码用 PBKDF2-SHA256（120,000 迭代、16B 随机盐、32B 派生键）哈希存储，恒时比较防时序侧信道。
+- 密码用 PBKDF2-SHA256（100,000 迭代、16B 随机盐、32B 派生键）哈希存储，恒时比较防时序侧信道；100,000 是 Cloudflare Workers WebCrypto 当前允许的上限。
 - Session：32B 随机 token；D1 只存 SHA-256 摘要；cookie 值带 HMAC 签名，篡改即失效。
-- Cookie：`tq_session`，`HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800`（7 天）。仅本地 http 调试可通过 `.dev.vars` 设 `COOKIE_SECURE=false`，生产强制 Secure。
+- Cookie：`tq_session`，生产为 `HttpOnly; Secure; SameSite=None; Path=/; Max-Age=604800`（7 天），以支持 GitHub Pages 与 workers.dev 跨站 API；本地 http 调试设 `COOKIE_SECURE=false` 时自动回退为 `SameSite=Lax`。
 - 重置密码或停用账号会立即吊销该用户全部会话。
 
 ## 权限模型
