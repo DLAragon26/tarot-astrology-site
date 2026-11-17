@@ -13,6 +13,8 @@ const filterMode = document.getElementById('filter-mode') as HTMLSelectElement;
 const filterTopic = document.getElementById('filter-topic') as HTMLSelectElement;
 const filterScope = document.getElementById('filter-scope') as HTMLSelectElement;
 const scopeWrap = document.getElementById('scope-wrap') as HTMLDivElement;
+const userWrap = document.getElementById('user-wrap') as HTMLDivElement;
+const filterUser = document.getElementById('filter-user') as HTMLSelectElement;
 const searchInput = document.getElementById('search-input') as HTMLInputElement;
 const exportJsonBtn = document.getElementById('export-json') as HTMLButtonElement;
 const exportMdBtn = document.getElementById('export-md') as HTMLButtonElement;
@@ -35,9 +37,36 @@ function currentParams(limit: number, offsetValue: number): string {
   });
   if (filterMode.value) params.set('mode', filterMode.value);
   if (filterTopic.value) params.set('topic', filterTopic.value);
+  if (filterScope.value === 'all' && filterUser.value) params.set('user', filterUser.value);
   const q = searchInput.value.trim();
   if (q) params.set('q', q);
   return params.toString();
+}
+
+// P1：全站视图的用户筛选下拉（管理员可用；值 = 用户 id）
+let userOptionsLoaded = false;
+async function loadUserOptions(): Promise<void> {
+  if (userOptionsLoaded) return;
+  try {
+    const { users } = await api<{ users: { id: string; username: string }[] }>('/api/admin/users');
+    filterUser.innerHTML = '';
+    filterUser.appendChild(new Option('全部用户', ''));
+    for (const u of users) filterUser.appendChild(new Option(u.username, u.id));
+    userOptionsLoaded = true;
+  } catch {
+    /* 非管理员或加载失败：下拉保持不可见 */
+  }
+}
+
+function syncUserFilterVisibility(): void {
+  if (filterScope.value === 'all') {
+    void loadUserOptions().then(() => {
+      userWrap.hidden = !userOptionsLoaded;
+    });
+  } else {
+    userWrap.hidden = true;
+    filterUser.value = '';
+  }
 }
 
 async function load(reset: boolean): Promise<void> {
@@ -74,6 +103,10 @@ function readingCard(r: Reading): HTMLElement {
   head.appendChild(document.createTextNode(r.mode === 'online' ? '线上抽牌' : '线下录入'));
   head.appendChild(document.createTextNode(' · '));
   head.appendChild(document.createTextNode(getSpread(r.spread)?.nameZh ?? r.spread));
+  if (r.username) {
+    head.appendChild(document.createTextNode(' '));
+    head.appendChild(el('span', 'tag', `@${r.username}`));
+  }
   if (r.topic_tag) head.appendChild(document.createTextNode(' '));
   if (r.topic_tag) head.appendChild(el('span', 'tag', r.topic_tag));
   if (r.mood_tag) head.appendChild(document.createTextNode(' '));
@@ -136,6 +169,10 @@ function openDetail(r: Reading): void {
   head.appendChild(document.createTextNode(r.mode === 'online' ? '线上抽牌' : '线下录入'));
   head.appendChild(document.createTextNode(' · '));
   head.appendChild(document.createTextNode(getSpread(r.spread)?.nameZh ?? r.spread));
+  if (r.username) {
+    head.appendChild(document.createTextNode(' · 归属：'));
+    head.appendChild(el('strong', undefined, r.username));
+  }
   if (r.topic_tag) head.appendChild(el('span', 'tag', r.topic_tag));
   if (r.mood_tag) head.appendChild(document.createTextNode(' '));
   if (r.mood_tag) head.appendChild(el('span', 'tag', r.mood_tag));
@@ -356,7 +393,11 @@ exportMdBtn.addEventListener('click', () => void doExport('md'));
 
 filterMode.addEventListener('change', () => void load(true));
 filterTopic.addEventListener('change', () => void load(true));
-filterScope.addEventListener('change', () => void load(true));
+filterScope.addEventListener('change', () => {
+  syncUserFilterVisibility();
+  void load(true);
+});
+filterUser.addEventListener('change', () => void load(true));
 moreBtn.addEventListener('click', () => void load(false));
 searchInput.addEventListener('input', () => {
   if (searchTimer !== undefined) window.clearTimeout(searchTimer);
@@ -366,6 +407,7 @@ searchInput.addEventListener('input', () => {
 api<{ user: { role: string } }>('/api/me')
   .then(({ user }) => {
     scopeWrap.hidden = user.role !== 'admin';
+    syncUserFilterVisibility();
   })
   .catch(() => {
     /* api 会在 401 时统一跳转登录页 */

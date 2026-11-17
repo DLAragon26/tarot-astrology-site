@@ -906,3 +906,54 @@ describe('B5 token 用量记账', () => {
     expect(body.interpretation.text).toBe('这不是 JSON。');
   });
 });
+
+describe('P1 全站记录归属与按用户筛选', () => {
+  it('scope=all 返回 username；user 参数筛选；member 列表不带 username', async () => {
+    const { adminCookie } = await setupAdmin(env, req);
+    const alice = await createMember(req, adminCookie, 'own_alice');
+    const bob = await createMember(req, adminCookie, 'own_bob');
+    const aliceCookie = await loginMember(env, 'own_alice');
+    const bobCookie = await loginMember(env, 'own_bob');
+    await req('/api/readings', {
+      method: 'POST',
+      headers: jsonHeaders(aliceCookie),
+      body: JSON.stringify({ ...THREE_CARDS_PAYLOAD, question: 'alice 的问题' }),
+    });
+    await req('/api/readings', {
+      method: 'POST',
+      headers: jsonHeaders(bobCookie),
+      body: JSON.stringify({ ...THREE_CARDS_PAYLOAD, question: 'bob 的问题' }),
+    });
+
+    // admin 全站视图：带 username
+    const all = await req('/api/readings?scope=all', { headers: { Cookie: adminCookie, ...ORIGIN } });
+    const allBody = (await all.json()) as { items: { username: string | null; question: string }[] };
+    expect(allBody.items).toHaveLength(2);
+    const usernames = allBody.items.map((i) => i.username).sort();
+    expect(usernames).toEqual(['own_alice', 'own_bob']);
+
+    // admin 按用户筛选：只返回 alice 的
+    const filtered = await req(`/api/readings?scope=all&user=${alice.id}`, {
+      headers: { Cookie: adminCookie, ...ORIGIN },
+    });
+    const filteredBody = (await filtered.json()) as {
+      total: number;
+      items: { username: string | null; user_id: string }[];
+    };
+    expect(filteredBody.total).toBe(1);
+    expect(filteredBody.items[0]).toMatchObject({ username: 'own_alice', user_id: alice.id });
+
+    // member 自己的列表：不带 username（不查询 users 表）
+    const mine = await req('/api/readings', { headers: { Cookie: aliceCookie, ...ORIGIN } });
+    const mineBody = (await mine.json()) as { items: { username?: string | null }[] };
+    expect(mineBody.items).toHaveLength(1);
+    expect(mineBody.items[0]?.username ?? null).toBeNull();
+
+    // member 用 user 参数无效（scope 被强制 self，user 参数被忽略 → 仍只看到自己的）
+    const memberFiltered = await req(`/api/readings?scope=self&user=${bob.id}`, {
+      headers: { Cookie: aliceCookie, ...ORIGIN },
+    });
+    const memberFilteredBody = (await memberFiltered.json()) as { items: unknown[] };
+    expect(memberFilteredBody.items).toHaveLength(1);
+  });
+});

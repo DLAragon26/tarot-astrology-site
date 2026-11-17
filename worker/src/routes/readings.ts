@@ -37,6 +37,7 @@ interface ReadingRow {
   user_note: string | null;
   mood_tag: string | null;
   topic_tag: string | null;
+  username?: string | null;
 }
 
 function rowToReading(row: ReadingRow): Reading | null {
@@ -55,6 +56,7 @@ function rowToReading(row: ReadingRow): Reading | null {
     user_note: row.user_note,
     mood_tag: row.mood_tag,
     topic_tag: row.topic_tag,
+    username: row.username ?? null,
   };
 }
 
@@ -84,33 +86,44 @@ readingRoutes.get('/', async (c) => {
     if (term.length > 0) q = term;
   }
 
+  // P1：全站视图下按用户筛选（值 = 用户 id），仅 scope=all 生效
+  const userFilter = scope === 'all' ? (c.req.query('user') ?? '').trim() : '';
+
   const conditions: string[] = [];
   const args: string[] = [];
   if (scope === 'self') {
-    conditions.push('user_id = ?');
+    conditions.push('r.user_id = ?');
     args.push(user.id);
   }
   if (modeQuery) {
-    conditions.push('mode = ?');
+    conditions.push('r.mode = ?');
     args.push(modeQuery);
   }
   if (topic) {
-    conditions.push('topic_tag = ?');
+    conditions.push('r.topic_tag = ?');
     args.push(topic);
+  }
+  if (userFilter) {
+    conditions.push('r.user_id = ?');
+    args.push(userFilter);
   }
   if (q) {
     // 关键词搜索：问题 / 备注 / 已存解读（% _ \ 转义，避免通配符注入）
     const esc = q.replace(/[\\%_]/g, (m) => `\\${m}`);
-    conditions.push("(question LIKE ? ESCAPE '\\' OR user_note LIKE ? ESCAPE '\\' OR ai_interpretation LIKE ? ESCAPE '\\')");
+    conditions.push("(r.question LIKE ? ESCAPE '\\' OR r.user_note LIKE ? ESCAPE '\\' OR r.ai_interpretation LIKE ? ESCAPE '\\')");
     args.push(`%${esc}%`, `%${esc}%`, `%${esc}%`);
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  // 全站视图附带归属用户名；member 自己的列表不查询 users 表
+  const select = scope === 'all' ? 'SELECT r.*, u.username AS username' : 'SELECT r.*';
+  const from =
+    scope === 'all' ? 'FROM readings r LEFT JOIN users u ON u.id = r.user_id' : 'FROM readings r';
   const rows = await c.env.DB.prepare(
-    `SELECT * FROM readings ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`
+    `${select} ${from} ${where} ORDER BY r.created_at DESC LIMIT ? OFFSET ?`
   )
     .bind(...args, limit, offset)
     .all<ReadingRow>();
-  const totalRow = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM readings ${where}`)
+  const totalRow = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM readings r ${where}`)
     .bind(...args)
     .first<{ n: number }>();
   const items = (rows.results ?? []).map(rowToReading).filter((r): r is Reading => r !== null);

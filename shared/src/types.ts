@@ -60,6 +60,8 @@ export interface Reading {
   user_note: string | null;
   mood_tag: string | null;
   topic_tag: string | null;
+  /** 仅 scope=all（管理员全站视图）时附带：记录归属用户名 */
+  username?: string | null;
 }
 
 export interface PublicUser {

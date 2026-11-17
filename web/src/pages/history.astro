@@ -12,6 +12,10 @@ import Base from '../layouts/Base.astro';
         <option value="all">全站记录</option>
       </select>
     </div>
+    <div style="flex:1; min-width:140px;" id="user-wrap" hidden>
+      <label class="field" for="filter-user">用户</label>
+      <select id="filter-user"><option value="">全部用户</option></select>
+    </div>
     <div style="flex:1; min-width:140px;">
       <label class="field" for="filter-mode">模式</label>
       <select id="filter-mode">
