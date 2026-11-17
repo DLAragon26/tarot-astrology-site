@@ -53,6 +53,10 @@ function renderStats(stats: ReadingStats): void {
   top.lastChild?.appendChild(el('strong', undefined, `总解读次数：${stats.total}`));
   top.appendChild(document.createTextNode('  '));
   top.appendChild(el('span', 'muted', `AI 解读累计 ${stats.ai_used_total} 次`));
+  if (stats.ai_tokens_total > 0) {
+    top.appendChild(document.createTextNode('  '));
+    top.appendChild(el('span', 'muted', `Token 累计 ${stats.ai_tokens_total.toLocaleString()}`));
+  }
   content.appendChild(top);
 
   // 月度趋势
@@ -150,7 +154,11 @@ async function renderAdmin(): Promise<void> {
 
     const head = el('div', 'panel');
     head.appendChild(
-      el('p', undefined, `全站解读 ${stats.total_readings} 次 · 今日 AI 使用 ${stats.global_used_today}/${stats.global_limit} 次`)
+      el(
+        'p',
+        undefined,
+        `全站解读 ${stats.total_readings} 次 · 今日 AI 使用 ${stats.global_used_today}/${stats.global_limit} 次 · 今日 Token ${(stats.ai_tokens_today ?? 0).toLocaleString()} · 累计 Token ${(stats.ai_tokens_total ?? 0).toLocaleString()}`
+      )
     );
     adminContent.appendChild(head);
 

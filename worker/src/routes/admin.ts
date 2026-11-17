@@ -9,7 +9,14 @@ import {
 import { Hono } from 'hono';
 import { hashPassword, toPublicUser, type UserRow } from '../auth';
 import type { Env } from '../env';
-import { getGlobalDailyLimit, getGlobalUsage, getUserDailyLimit, getUserUsage } from '../quota';
+import {
+  getGlobalDailyLimit,
+  getGlobalUsage,
+  getTokensForDate,
+  getTokensTotal,
+  getUserDailyLimit,
+  getUserUsage,
+} from '../quota';
 
 export const adminRoutes = new Hono<{ Bindings: Env; Variables: { user: UserRow } }>();
 const INVITE_TTL_DAYS = 7;
@@ -312,6 +319,8 @@ adminRoutes.get('/stats', async (c) => {
       total_readings: totalRow?.n ?? 0,
       global_limit: globalLimit,
       global_used_today: globalUsed,
+      ai_tokens_today: await getTokensForDate(c.env.DB, today),
+      ai_tokens_total: await getTokensTotal(c.env.DB, null),
       users,
       invite_codes: (inviteRows.results ?? []).map((r) => ({
         code: r.code,

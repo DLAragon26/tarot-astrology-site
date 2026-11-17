@@ -11,6 +11,7 @@ import {
   makeEnv,
   MEMBER_PW,
   setupAdmin,
+  sseBody,
   THREE_CARDS_PAYLOAD,
 } from './helpers/env';
 
@@ -28,7 +29,7 @@ let req: ReturnType<typeof appRequest>;
 beforeEach(() => {
   env = makeEnv();
   req = appRequest(env);
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(aiOkResponse('模拟解读：这是一次测试输出。'), { status: 200 })));
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(aiOkResponse(), { status: 200 })));
 });
 
 afterEach(() => {
@@ -382,15 +383,19 @@ describe('AI 额度', () => {
     expect((body.error as { detail?: string }).detail).toBeUndefined();
 
     // 额度已退还，重试可用
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(aiOkResponse('恢复了'), { status: 200 })));
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(aiOkResponse({ synthesis: '恢复了' }), { status: 200 })));
     const retry = await req('/api/interpret', {
       method: 'POST',
       headers: jsonHeaders(henry),
       body: JSON.stringify(THREE_CARDS_PAYLOAD),
     });
     expect(retry.status).toBe(200);
-    const retryBody = (await retry.json()) as { interpretation: string };
-    expect(retryBody.interpretation).toBe('恢复了');
+    const retryBody = (await retry.json()) as {
+      interpretation: { format: string; synthesis: string; cards: unknown[] };
+    };
+    expect(retryBody.interpretation.format).toBe('structured');
+    expect(retryBody.interpretation.synthesis).toBe('恢复了');
+    expect(retryBody.interpretation.cards).toHaveLength(3);
   });
 
   it('quota 接口返回额度信息与 ISO 重置时间', async () => {
@@ -642,5 +647,262 @@ describe('统计接口', () => {
     expect(cardIds).toEqual(['rw-00-fool', 'rw-10-wheel-of-fortune', 'rw-19-sun']);
     expect(stats.orientations.upright).toBe(2);
     expect(stats.orientations.reversed).toBe(1);
+  });
+});
+
+describe('A7 历史关键词搜索', () => {
+  it('q 命中问题文本；通配符被转义；超长拒绝', async () => {
+    const { adminCookie } = await setupAdmin(env, req);
+    await createMember(req, adminCookie, 'search_user');
+    const cookie = await loginMember(env, 'search_user');
+    const mk = (question: string) =>
+      req('/api/readings', {
+        method: 'POST',
+        headers: jsonHeaders(cookie),
+        body: JSON.stringify({ ...THREE_CARDS_PAYLOAD, question }),
+      });
+    await mk('关于搬家的问题');
+    await mk('关于跳槽的问题');
+
+    const hit = await req(`/api/readings?q=${encodeURIComponent('搬家')}`, { headers: { Cookie: cookie, ...ORIGIN } });
+    expect(hit.status).toBe(200);
+    const hitBody = (await hit.json()) as { total: number; items: { question: string }[] };
+    expect(hitBody.total).toBe(1);
+    expect(hitBody.items[0]?.question).toContain('搬家');
+
+    // 纯通配符不应匹配全部（被 ESCAPE 转义为字面量）
+    const wildcard = await req(`/api/readings?q=${encodeURIComponent('%')}`, { headers: { Cookie: cookie, ...ORIGIN } });
+    const wildcardBody = (await wildcard.json()) as { total: number };
+    expect(wildcardBody.total).toBe(0);
+
+    const tooLong = await req(`/api/readings?q=${'x'.repeat(101)}`, { headers: { Cookie: cookie, ...ORIGIN } });
+    expect(tooLong.status).toBe(400);
+  });
+});
+
+describe('C2 登录限流', () => {
+  it('连续 5 次失败后锁定；锁定期满后可正常登录', async () => {
+    const { adminCookie } = await setupAdmin(env, req);
+    await createMember(req, adminCookie, 'lockme');
+
+    for (let i = 0; i < 5; i++) {
+      const bad = await login(env, { site_access_key: 'test-site-key', username: 'lockme', password: 'wrong-pw-000000' });
+      expect(bad.res.status, `attempt ${i + 1}`).toBe(401);
+    }
+    // 第 6 次即使密码正确也被锁定拒绝
+    const locked = await login(env, { site_access_key: 'test-site-key', username: 'lockme', password: MEMBER_PW });
+    expect(locked.res.status).toBe(429);
+    const lockedBody = (await locked.res.json()) as { error: { code: string } };
+    expect(lockedBody.error.code).toBe('RATE_LIMITED');
+
+    // 模拟锁定到期
+    await env.DB.prepare("UPDATE login_attempts SET locked_until = '2000-01-01T00:00:00.000Z'").run();
+    const ok = await login(env, { site_access_key: 'test-site-key', username: 'lockme', password: MEMBER_PW });
+    expect(ok.res.status).toBe(200);
+    const rows = await env.DB.prepare('SELECT COUNT(*) AS n FROM login_attempts').first<{ n: number }>();
+    expect(rows?.n).toBe(0);
+  });
+});
+
+describe('C1 额度原子性', () => {
+  it('并发双请求在 limit=1 下只放行一次', async () => {
+    const { adminCookie } = await setupAdmin(env, req);
+    await createMember(req, adminCookie, 'race_quota', { daily_ai_limit: 1 });
+    const cookie = await loginMember(env, 'race_quota');
+    const body = JSON.stringify(THREE_CARDS_PAYLOAD);
+    const [a, b] = await Promise.all([
+      req('/api/interpret', { method: 'POST', headers: jsonHeaders(cookie), body }),
+      req('/api/interpret', { method: 'POST', headers: jsonHeaders(cookie), body }),
+    ]);
+    expect([a.status, b.status].sort()).toEqual([200, 429]);
+    const fetchMock = vi.mocked(globalThis.fetch);
+    expect(fetchMock.mock.calls.length).toBe(1);
+    const row = await env.DB.prepare(
+      "SELECT count FROM ai_usage WHERE user_id = (SELECT id FROM users WHERE username = 'race_quota')"
+    ).first<{ count: number }>();
+    expect(row?.count).toBe(1);
+  });
+
+  it('全站额度占用失败只回退个人额度，不影响全站计数', async () => {
+    const { adminCookie } = await setupAdmin(env, req);
+    const gina = await createMember(req, adminCookie, 'gina2', { daily_ai_limit: 5 });
+    const ginaCookie = await loginMember(env, 'gina2');
+    await env.DB.prepare("UPDATE settings SET value = '1' WHERE key = 'global_daily_ai_limit'").run();
+    await req('/api/interpret', {
+      method: 'POST',
+      headers: jsonHeaders(ginaCookie),
+      body: JSON.stringify(THREE_CARDS_PAYLOAD),
+    });
+    const adminMe = await req('/api/me', { headers: { Cookie: adminCookie, ...ORIGIN } });
+    const adminId = ((await adminMe.json()) as { user: { id: string } }).user.id;
+    await req(`/api/admin/users/${adminId}`, {
+      method: 'PATCH',
+      headers: jsonHeaders(adminCookie),
+      body: JSON.stringify({ daily_ai_limit: 1 }),
+    });
+    const blocked = await req('/api/interpret', {
+      method: 'POST',
+      headers: jsonHeaders(adminCookie),
+      body: JSON.stringify(THREE_CARDS_PAYLOAD),
+    });
+    expect(blocked.status).toBe(429);
+    // 全站计数应保持 1（gina 的一次），不因回退变成 0
+    const globalRow = await env.DB.prepare(
+      "SELECT count FROM global_ai_usage WHERE usage_date = date('now','+8 hours')"
+    ).first<{ count: number }>();
+    expect(globalRow?.count).toBe(1);
+    // 个人额度已回退到 0
+    const adminRow = await env.DB.prepare('SELECT count FROM ai_usage WHERE user_id = ?').bind(adminId).first<{ count: number }>();
+    expect(adminRow?.count).toBe(0);
+    expect(gina.id).toBeTruthy();
+  });
+});
+
+describe('A4 流式解读（SSE）', () => {
+  const content = JSON.stringify({
+    cards: [
+      { index: 0, analysis: '第一张牌的流式分析。' },
+      { index: 1, analysis: '第二张牌的流式分析。' },
+      { index: 2, analysis: '第三张牌的流式分析。' },
+    ],
+    synthesis: '流式综合解读。',
+    reflection: ['流式反思问题？'],
+  });
+
+  it('delta/done 事件、结构化结果与 token 记账', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(sseBody(content, { prompt_tokens: 100, completion_tokens: 60 }), { status: 200 }))
+    );
+    const { adminCookie } = await setupAdmin(env, req);
+    const member = await createMember(req, adminCookie, 'streamer', { daily_ai_limit: 2 });
+    const cookie = await loginMember(env, 'streamer');
+
+    const res = await req('/api/interpret/stream', {
+      method: 'POST',
+      headers: jsonHeaders(cookie),
+      body: JSON.stringify(THREE_CARDS_PAYLOAD),
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toContain('text/event-stream');
+    const text = await res.text();
+    expect(text).toContain('event: delta');
+    expect(text).toContain('event: done');
+    const doneEvent = text.split('\n\n').find((part) => part.includes('event: done'));
+    const dataLine = doneEvent?.split('\n').find((l) => l.startsWith('data:'));
+    expect(dataLine).toBeTruthy();
+    const done = JSON.parse(dataLine!.slice(5).trim()) as {
+      interpretation: { format: string; synthesis: string; cards: unknown[] };
+      quota: { used_today: number };
+    };
+    expect(done.interpretation.format).toBe('structured');
+    expect(done.interpretation.synthesis).toBe('流式综合解读。');
+    expect(done.interpretation.cards).toHaveLength(3);
+    expect(done.quota.used_today).toBe(1);
+
+    const row = await env.DB.prepare('SELECT prompt_tokens, completion_tokens FROM ai_usage WHERE user_id = ?')
+      .bind(member.id)
+      .first<{ prompt_tokens: number; completion_tokens: number }>();
+    expect(row?.prompt_tokens).toBe(100);
+    expect(row?.completion_tokens).toBe(60);
+  });
+
+  it('上游失败：error 事件 + 额度退还', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('boom', { status: 500 })));
+    const { adminCookie } = await setupAdmin(env, req);
+    await createMember(req, adminCookie, 'stream_fail', { daily_ai_limit: 1 });
+    const cookie = await loginMember(env, 'stream_fail');
+
+    const res = await req('/api/interpret/stream', {
+      method: 'POST',
+      headers: jsonHeaders(cookie),
+      body: JSON.stringify(THREE_CARDS_PAYLOAD),
+    });
+    expect(res.status).toBe(200); // SSE 以事件传达错误
+    const text = await res.text();
+    expect(text).toContain('event: error');
+    expect(text).toContain('AI_UPSTREAM_ERROR');
+
+    const quota = await req('/api/quota', { headers: { Cookie: cookie, ...ORIGIN } });
+    const quotaBody = (await quota.json()) as { quota: { used_today: number } };
+    expect(quotaBody.quota.used_today).toBe(0);
+  });
+});
+
+describe('B3 最近记录上下文注入', () => {
+  it('默认不注入；include_context=true 时注入问题摘要', async () => {
+    const { adminCookie } = await setupAdmin(env, req);
+    await createMember(req, adminCookie, 'ctx_user', { daily_ai_limit: 3 });
+    const cookie = await loginMember(env, 'ctx_user');
+    await req('/api/readings', {
+      method: 'POST',
+      headers: jsonHeaders(cookie),
+      body: JSON.stringify({ ...THREE_CARDS_PAYLOAD, question: '我上次问的工作问题', topic_tag: '事业' }),
+    });
+    const fetchMock = vi.mocked(globalThis.fetch);
+
+    await req('/api/interpret', {
+      method: 'POST',
+      headers: jsonHeaders(cookie),
+      body: JSON.stringify(THREE_CARDS_PAYLOAD),
+    });
+    const firstBody = JSON.parse(String(fetchMock.mock.calls.at(-1)![1]?.body)) as {
+      messages: { role: string; content: string }[];
+    };
+    expect(firstBody.messages[1]!.content).not.toContain('最近记录背景');
+
+    await req('/api/interpret', {
+      method: 'POST',
+      headers: jsonHeaders(cookie),
+      body: JSON.stringify({ ...THREE_CARDS_PAYLOAD, include_context: true }),
+    });
+    const secondBody = JSON.parse(String(fetchMock.mock.calls.at(-1)![1]?.body)) as {
+      messages: { role: string; content: string }[];
+    };
+    expect(secondBody.messages[1]!.content).toContain('最近记录背景');
+    expect(secondBody.messages[1]!.content).toContain('我上次问的工作问题');
+  });
+});
+
+describe('B5 token 用量记账', () => {
+  it('成功后累加 tokens 并在 stats / admin stats 暴露', async () => {
+    const { adminCookie } = await setupAdmin(env, req);
+    const member = await createMember(req, adminCookie, 'token_user', { daily_ai_limit: 2 });
+    const cookie = await loginMember(env, 'token_user');
+    const res = await req('/api/interpret', {
+      method: 'POST',
+      headers: jsonHeaders(cookie),
+      body: JSON.stringify(THREE_CARDS_PAYLOAD),
+    });
+    expect(res.status).toBe(200);
+    const row = await env.DB.prepare('SELECT prompt_tokens, completion_tokens FROM ai_usage WHERE user_id = ?')
+      .bind(member.id)
+      .first<{ prompt_tokens: number; completion_tokens: number }>();
+    expect(row).toMatchObject({ prompt_tokens: 120, completion_tokens: 80 });
+
+    const statsRes = await req('/api/stats', { headers: { Cookie: cookie, ...ORIGIN } });
+    const statsBody = (await statsRes.json()) as { stats: { ai_tokens_total: number } };
+    expect(statsBody.stats.ai_tokens_total).toBe(200);
+
+    const adminStats = await req('/api/admin/stats', { headers: { Cookie: adminCookie, ...ORIGIN } });
+    const adminBody = (await adminStats.json()) as { stats: { ai_tokens_today: number; ai_tokens_total: number } };
+    expect(adminBody.stats.ai_tokens_total).toBe(200);
+    expect(adminBody.stats.ai_tokens_today).toBe(200);
+  });
+
+  it('结构化解析失败时降级为纯文本（不伪装成结构化）', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: '这不是 JSON。' } }] }), { status: 200 })));
+    const { adminCookie } = await setupAdmin(env, req);
+    await createMember(req, adminCookie, 'fallback_user', { daily_ai_limit: 1 });
+    const cookie = await loginMember(env, 'fallback_user');
+    const res = await req('/api/interpret', {
+      method: 'POST',
+      headers: jsonHeaders(cookie),
+      body: JSON.stringify(THREE_CARDS_PAYLOAD),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { interpretation: { format: string; text: string } };
+    expect(body.interpretation.format).toBe('text');
+    expect(body.interpretation.text).toBe('这不是 JSON。');
   });
 });

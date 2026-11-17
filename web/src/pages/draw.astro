@@ -22,7 +22,16 @@ import Base from '../layouts/Base.astro';
       <select id="mood"></select>
     </div>
   </div>
+  <label class="checkbox-row" style="margin-top:10px;">
+    <input type="checkbox" id="context-consent" />
+    <span>让 AI 参考我最近记录的主题（默认关闭；仅向 AI 传入最近 5 条记录的问题与主题标签）</span>
+  </label>
   <div id="draft-notice" class="notice" hidden></div>
+  <div id="restore-box" class="notice" hidden>
+    <p id="restore-text" style="margin:0 0 8px;"></p>
+    <button class="btn secondary" id="restore-btn" type="button">恢复上次草稿</button>
+    <button class="btn secondary" id="discard-btn" type="button">丢弃</button>
+  </div>
 
   <h2>选择牌阵</h2>
   <div id="spread-picker"></div>
@@ -31,6 +40,8 @@ import Base from '../layouts/Base.astro';
     <button class="btn accent" id="draw-btn" type="button">洗牌 · 抽牌</button>
   </div>
 
+  <div id="pool-area"></div>
+
   <div id="spread-area"></div>
 
   <div id="result-area" hidden>
@@ -38,7 +49,7 @@ import Base from '../layouts/Base.astro';
     <p class="muted">点击解读会将问题、标签和牌面发送给本站配置的 AI 服务。</p>
     <div id="interpret-err" class="notice error" hidden></div>
     <div id="interpret-out" hidden>
-      <div class="panel"><p id="interpret-text"></p></div>
+      <div class="panel"><div id="interpret-text"></div></div>
       <p class="muted">解读基于心理反思与象征视角，不构成对未来的断言；医疗、投资、法律决定请咨询专业人士。</p>
     </div>
     <button class="btn secondary" id="save-btn" type="button">保存记录</button>

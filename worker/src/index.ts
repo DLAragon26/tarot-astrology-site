@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { requireAdmin, requireAuth } from './auth';
 import type { Env } from './env';
+import { cleanupExpiredSessions, cleanupLoginAttempts } from './limiter';
 import { adminRoutes } from './routes/admin';
 import { authRoutes } from './routes/auth';
 import { interpretRoutes } from './routes/interpret';
@@ -80,4 +81,23 @@ app.onError((err, c) => {
   return c.json({ error: { code: 'INTERNAL', message: '服务器内部错误' } }, 500);
 });
 
-export default app;
+// ---------- 定时清理（C3）：过期 session 与过期登录限流记录 ----------
+
+async function scheduledCleanup(env: Env): Promise<void> {
+  try {
+    await cleanupExpiredSessions(env.DB);
+    await cleanupLoginAttempts(env.DB);
+  } catch (e) {
+    console.error('scheduled cleanup failed:', e instanceof Error ? e.message : e);
+  }
+}
+
+// 命名导出 Hono app（测试/工具直接使用 app.request，无需经过 Workers 运行时）
+export { app };
+
+export default {
+  fetch: app.fetch,
+  scheduled: (_controller: ScheduledController, env: Env, ctx: ExecutionContext) => {
+    ctx.waitUntil(scheduledCleanup(env));
+  },
+} satisfies ExportedHandler<Env>;

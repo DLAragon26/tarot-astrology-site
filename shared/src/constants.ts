@@ -27,6 +27,7 @@ export const ERR = {
   AI_UPSTREAM: 'AI_UPSTREAM_ERROR',
   CONFLICT: 'CONFLICT',
   SITE_KEY: 'SITE_KEY_INVALID',
+  RATE_LIMITED: 'RATE_LIMITED',
 } as const;
 
 export type ErrCode = (typeof ERR)[keyof typeof ERR];

@@ -114,6 +114,8 @@ export interface InterpretRequest {
   cards: DrawnCard[];
   mood_tag?: string | null;
   topic_tag?: string | null;
+  /** true = 允许后端取该用户最近几条记录的问题/主题摘要注入 prompt（默认关闭） */
+  include_context?: boolean;
 }
 
 export interface AdminCreateUserRequest {
@@ -130,6 +132,31 @@ export interface AdminPatchUserRequest {
   new_password?: string;
 }
 
+// ---------- AI 解读（结构化输出） ----------
+
+/** 单张牌的结构化分析。位置/牌名/正逆位由后端用权威数据填充，不信任模型输出。 */
+export interface CardAnalysis {
+  position: string;
+  name: string;
+  orientation: string;
+  analysis: string;
+}
+
+export interface StructuredInterpretation {
+  format: 'structured';
+  cards: CardAnalysis[];
+  synthesis: string;
+  reflection: string[];
+}
+
+/** 模型未按 JSON 返回时的降级：原样输出纯文本 */
+export interface TextInterpretation {
+  format: 'text';
+  text: string;
+}
+
+export type InterpretationPayload = StructuredInterpretation | TextInterpretation;
+
 // ---------- 响应 ----------
 
 export interface ApiErrorBody {
@@ -140,7 +167,7 @@ export interface ApiErrorBody {
 }
 
 export interface InterpretResponse {
-  interpretation: string;
+  interpretation: InterpretationPayload;
   model: string;
   quota: {
     daily_limit: number;
@@ -175,6 +202,8 @@ export interface ReadingStats {
   orientations: { upright: number; reversed: number };
   ai_used_total: number;
   ai_used_today: number;
+  /** 累计 AI token（prompt+completion，本人或全站范围） */
+  ai_tokens_total: number;
 }
 
 export interface AdminInviteRow {
@@ -190,6 +219,10 @@ export interface AdminStats {
   total_readings: number;
   global_limit: number;
   global_used_today: number;
+  /** 全站今日 token 用量（prompt+completion） */
+  ai_tokens_today: number;
+  /** 全站累计 token 用量 */
+  ai_tokens_total: number;
   users: AdminUserRow[];
   invite_codes: AdminInviteRow[];
 }

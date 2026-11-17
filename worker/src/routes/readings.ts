@@ -74,6 +74,15 @@ readingRoutes.get('/', async (c) => {
   if (topicQuery !== undefined && !topic) {
     return c.json({ error: { code: ERR.VALIDATION, message: 'topic 筛选条件不合法' } }, 400);
   }
+  const qQuery = c.req.query('q');
+  let q: string | null = null;
+  if (qQuery !== undefined) {
+    const term = qQuery.trim();
+    if (term.length > 100) {
+      return c.json({ error: { code: ERR.VALIDATION, message: '搜索词不能超过 100 字' } }, 400);
+    }
+    if (term.length > 0) q = term;
+  }
 
   const conditions: string[] = [];
   const args: string[] = [];
@@ -88,6 +97,12 @@ readingRoutes.get('/', async (c) => {
   if (topic) {
     conditions.push('topic_tag = ?');
     args.push(topic);
+  }
+  if (q) {
+    // 关键词搜索：问题 / 备注 / 已存解读（% _ \ 转义，避免通配符注入）
+    const esc = q.replace(/[\\%_]/g, (m) => `\\${m}`);
+    conditions.push("(question LIKE ? ESCAPE '\\' OR user_note LIKE ? ESCAPE '\\' OR ai_interpretation LIKE ? ESCAPE '\\')");
+    args.push(`%${esc}%`, `%${esc}%`, `%${esc}%`);
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   const rows = await c.env.DB.prepare(
@@ -122,8 +137,8 @@ readingRoutes.post('/', async (c) => {
   const note = validateOptionalText(body.user_note);
   const mood = validateMoodTag(body.mood_tag);
   const topic = validateTopicTag(body.topic_tag);
-  // 前端抽牌后保存时可能已获得 AI 解读，一并入库
-  const aiText = validateOptionalText(body.ai_interpretation, 8000);
+  // 前端抽牌后保存时可能已获得 AI 解读，一并入库（结构化为 JSON 字符串）
+  const aiText = validateOptionalText(body.ai_interpretation, 12000);
 
   const id = crypto.randomUUID();
   const ts = new Date().toISOString();

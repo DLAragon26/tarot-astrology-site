@@ -1,5 +1,5 @@
 import type { Env } from '../../src/env';
-import app from '../../src/index';
+import { app } from '../../src/index';
 import { createTestDb } from './minid1';
 
 export function makeEnv(overrides: Partial<Env> = {}): Env {
@@ -86,6 +86,41 @@ export const THREE_CARDS_PAYLOAD = {
   ],
 };
 
-export function aiOkResponse(text = '这是一段测试解读。'): string {
-  return JSON.stringify({ choices: [{ message: { content: text } }] });
+export interface StubCard {
+  index: number;
+  analysis: string;
+}
+
+export interface AiOkOptions {
+  synthesis?: string;
+  cards?: StubCard[];
+  /** 未指定 cards 时按牌数生成默认 cards */
+  cardCount?: number;
+  usage?: { prompt_tokens: number; completion_tokens: number } | null;
+  reflection?: string[];
+}
+
+/** OpenAI-compatible 非流式响应体（结构化 JSON content + usage） */
+export function aiOkResponse(opts: AiOkOptions = {}): string {
+  const count = opts.cardCount ?? 3;
+  const cards = opts.cards ?? Array.from({ length: count }, (_, i) => ({ index: i, analysis: `第 ${i} 张牌的测试分析文本。` }));
+  const content = JSON.stringify({
+    cards,
+    synthesis: opts.synthesis ?? '模拟解读：这是一次测试输出。',
+    reflection: opts.reflection ?? ['这是一条测试反思问题？'],
+  });
+  const usage = opts.usage === undefined ? { prompt_tokens: 120, completion_tokens: 80 } : opts.usage;
+  return JSON.stringify({ choices: [{ message: { content } }], ...(usage ? { usage } : {}) });
+}
+
+/** 把 content 切成若干增量，包成上游 SSE 流（data: {...}） */
+export function sseBody(content: string, usage?: { prompt_tokens: number; completion_tokens: number } | null): string {
+  const size = Math.max(Math.ceil(content.length / 6), 1);
+  let out = '';
+  for (let i = 0; i < content.length; i += size) {
+    out += `data: ${JSON.stringify({ choices: [{ delta: { content: content.slice(i, i + size) } }] })}\n\n`;
+  }
+  if (usage) out += `data: ${JSON.stringify({ choices: [], usage })}\n\n`;
+  out += 'data: [DONE]\n\n';
+  return out;
 }

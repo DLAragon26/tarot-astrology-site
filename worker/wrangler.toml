@@ -20,3 +20,7 @@ GLOBAL_DAILY_AI_LIMIT = "200"
 # 部署后改为你的 GitHub Pages 域名，如 "https://USERNAME.github.io,https://tarot-astrology-api.<subdomain>.workers.dev"
 ALLOWED_ORIGINS = "https://dlaragon26.github.io"
 COOKIE_SECURE = "true"
+
+# 定时任务：每日 11:17（Asia/Shanghai）清理过期 session 与登录限流记录（C3）
+[triggers]
+crons = ["17 3 * * *"]

@@ -1,0 +1,21 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="牌库 · 塔罗与星座" active="library">
+  <h1>牌库</h1>
+  <p class="muted">Rider-Waite 78 张全览。点击任意牌查看正逆位含义。纯静态资料页，不调用 AI。</p>
+
+  <div id="library-sections"></div>
+
+  <dialog id="card-dialog" class="detail-dialog">
+    <div id="card-detail"></div>
+    <div class="dialog-actions">
+      <button class="btn secondary" id="card-close" type="button">关闭</button>
+    </div>
+  </dialog>
+</Base>
+
+<script>
+  import '../scripts/library';
+</script>

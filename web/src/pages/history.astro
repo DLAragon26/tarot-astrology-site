@@ -25,10 +25,22 @@ import Base from '../layouts/Base.astro';
       <select id="filter-topic"><option value="">全部</option></select>
     </div>
   </div>
+  <div class="toolbar-row" style="margin-top:16px;">
+    <input type="search" id="search-input" placeholder="搜索问题 / 备注 / 解读关键词…" style="flex:1;" />
+    <button class="btn secondary" id="export-json" type="button">导出 JSON</button>
+    <button class="btn secondary" id="export-md" type="button">导出 Markdown</button>
+  </div>
   <div id="list"></div>
   <div id="empty" class="muted" hidden style="margin-top:32px;">还没有记录。</div>
   <button class="btn secondary" id="more-btn" hidden type="button">加载更多</button>
   <div id="err" class="notice error" hidden></div>
+
+  <dialog id="detail-dialog" class="detail-dialog">
+    <div id="detail-body"></div>
+    <div class="dialog-actions">
+      <button class="btn secondary" id="detail-close" type="button">关闭</button>
+    </div>
+  </dialog>
 </Base>
 
 <script>

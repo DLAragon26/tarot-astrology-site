@@ -19,6 +19,7 @@ import {
   verifyPassword,
   type UserRow,
 } from '../auth';
+import { clearLoginFailures, getLockState, recordLoginFailure } from '../limiter';
 
 export const authRoutes = new Hono<{ Bindings: Env; Variables: { user: UserRow } }>();
 
@@ -30,6 +31,19 @@ function siteKeyOk(env: Env, key: unknown): boolean {
   return typeof key === 'string' && key.length > 0 && timingSafeEqualStr(key, env.SITE_ACCESS_KEY);
 }
 
+/** C2：锁定中 → 429（带 Retry-After）；不泄露账号是否存在 */
+function lockedResponse(retryAfterSec: number): Response {
+  return new Response(
+    JSON.stringify({
+      error: { code: ERR.RATE_LIMITED, message: `尝试次数过多，请约 ${Math.ceil(retryAfterSec / 60)} 分钟后再试。` },
+    }),
+    {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': String(retryAfterSec) },
+    }
+  );
+}
+
 // POST /api/login — 站点访问密钥 + 用户名 + 密码；无公开注册。
 authRoutes.post('/login', async (c) => {
   let body: Partial<LoginRequest>;
@@ -38,7 +52,12 @@ authRoutes.post('/login', async (c) => {
   } catch {
     return c.json({ error: { code: ERR.VALIDATION, message: '请求体必须是 JSON' } }, 400);
   }
+  const attemptUsername = typeof body.username === 'string' ? body.username : '';
+  const lock = await getLockState(c.env.DB, c.req.raw, attemptUsername);
+  if (lock.locked) return lockedResponse(lock.retryAfterSec);
+
   if (!siteKeyOk(c.env, body.site_access_key)) {
+    await recordLoginFailure(c.env.DB, c.req.raw, attemptUsername);
     return c.json({ error: { code: ERR.SITE_KEY, message: '站点访问密钥、用户名或密码不正确' } }, 401);
   }
   const username = validateUsername(body.username);
@@ -53,13 +72,16 @@ authRoutes.post('/login', async (c) => {
     (await c.env.DB.prepare('SELECT * FROM users WHERE username = ?').bind(username).first<UserRow>());
 
   if (!user || user.is_active !== 1) {
+    await recordLoginFailure(c.env.DB, c.req.raw, username);
     return c.json({ error: { code: 'INVALID_CREDENTIALS', message: '站点访问密钥、用户名或密码不正确' } }, 401);
   }
   const ok = await verifyPassword(password, user.password_hash);
   if (!ok) {
+    await recordLoginFailure(c.env.DB, c.req.raw, username);
     return c.json({ error: { code: 'INVALID_CREDENTIALS', message: '站点访问密钥、用户名或密码不正确' } }, 401);
   }
 
+  await clearLoginFailures(c.env.DB, c.req.raw, username);
   const cookieValue = await createSession(c.env.DB, c.env, user.id);
   c.header('Set-Cookie', sessionCookieHeader(c.env, cookieValue));
   return c.json({ user: toPublicUser(user) });
@@ -97,6 +119,8 @@ authRoutes.post('/redeem', async (c) => {
     return c.json({ error: { code: ERR.VALIDATION, message: '请求体必须是 JSON' } }, 400);
   }
   if (!siteKeyOk(c.env, body.site_access_key)) {
+    const redeemUser = typeof body.username === 'string' ? body.username : '';
+    await recordLoginFailure(c.env.DB, c.req.raw, redeemUser);
     return c.json({ error: { code: ERR.SITE_KEY, message: '站点访问密钥不正确' } }, 401);
   }
   const code = typeof body.invite_code === 'string' ? body.invite_code.trim() : '';
@@ -146,6 +170,7 @@ authRoutes.post('/redeem', async (c) => {
   if (!userInserted) {
     return c.json({ error: { code: ERR.CONFLICT, message: '邀请码无效、已过期或已被使用' } }, 400);
   }
+  await clearLoginFailures(c.env.DB, c.req.raw, username);
   const cookieValue = await createSession(c.env.DB, c.env, id);
   c.header('Set-Cookie', sessionCookieHeader(c.env, cookieValue));
   return c.json({ user: { id, username, role: 'member', daily_ai_limit: null, must_change_password: false, created_at: ts } }, 201);

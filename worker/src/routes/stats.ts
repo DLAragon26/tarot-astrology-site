@@ -3,7 +3,15 @@ import { getCard, parseDrawnCardsJson } from '@tarot/shared';
 import { Hono } from 'hono';
 import type { UserRow } from '../auth';
 import type { Env } from '../env';
-import { getGlobalDailyLimit, getGlobalUsage, getUserDailyLimit, getUserUsage, resetAtISO, getUserUsageTotal } from '../quota';
+import {
+  getGlobalDailyLimit,
+  getGlobalUsage,
+  getUserDailyLimit,
+  getUserUsage,
+  getTokensTotal,
+  resetAtISO,
+  getUserUsageTotal,
+} from '../quota';
 
 export const statsRoutes = new Hono<{ Bindings: Env; Variables: { user: UserRow } }>();
 
@@ -85,6 +93,7 @@ async function aggregateStats(DB: D1Database, userId: string | null): Promise<Om
       )?.t ?? 0);
 
   const months = last12Months();
+  const tokensTotal = await getTokensTotal(DB, userId);
 
   return {
     total: list.length,
@@ -99,6 +108,7 @@ async function aggregateStats(DB: D1Database, userId: string | null): Promise<Om
     orientations: { upright, reversed },
     ai_used_total: aiTotal,
     ai_used_today: 0,
+    ai_tokens_total: tokensTotal,
   };
 }
 

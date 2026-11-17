@@ -38,7 +38,18 @@ console.log(`[setup] isolated smoke state: ${persistDir}`);
 // ---------- 2. AI stub ----------
 let stubMode = 'ok';
 let stubCount = 0;
-const STUB_TEXT = '【测试解读】这是本地 stub 返回的固定文本，仅用于冒烟测试。它不代表真实 AI 输出。';
+let stubLastBody = '';
+const STUB_SYNTHESIS = '【测试解读】这是本地 stub 返回的固定综合叙述，仅用于冒烟测试。它不代表真实 AI 输出。';
+const STUB_CONTENT = JSON.stringify({
+  cards: [
+    { index: 0, analysis: '【测试解读】第一张牌的 stub 分析文本。' },
+    { index: 1, analysis: '【测试解读】第二张牌的 stub 分析文本。' },
+    { index: 2, analysis: '【测试解读】第三张牌的 stub 分析文本。' },
+  ],
+  synthesis: STUB_SYNTHESIS,
+  reflection: ['【测试】这条问题背后你真正在意的是什么？'],
+});
+const STUB_USAGE = { prompt_tokens: 120, completion_tokens: 80 };
 
 const stub = http.createServer((req, res) => {
   if (req.method === 'POST' && req.url.endsWith('/chat/completions')) {
@@ -46,19 +57,43 @@ const stub = http.createServer((req, res) => {
     let body = '';
     req.on('data', (c) => (body += c));
     req.on('end', () => {
+      stubLastBody = body;
       if (stubMode === 'fail') {
         res.writeHead(500, { 'content-type': 'text/plain' });
         res.end('stub failure (intentional)');
         return;
       }
+      const wantsStream = (() => {
+        try {
+          return JSON.parse(body).stream === true;
+        } catch {
+          return false;
+        }
+      })();
+      if (wantsStream) {
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        const size = Math.ceil(STUB_CONTENT.length / 6);
+        for (let i = 0; i < STUB_CONTENT.length; i += size) {
+          res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: STUB_CONTENT.slice(i, i + size) } }] })}\n\n`);
+        }
+        res.write(`data: ${JSON.stringify({ choices: [], usage: STUB_USAGE })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+        return;
+      }
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ choices: [{ message: { content: STUB_TEXT } }] }));
+      res.end(JSON.stringify({ choices: [{ message: { content: STUB_CONTENT } }], usage: STUB_USAGE }));
     });
     return;
   }
   if (req.method === 'GET' && req.url === '/__count') {
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ count: stubCount, mode: stubMode }));
+    return;
+  }
+  if (req.method === 'GET' && req.url === '/__last') {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ body: stubLastBody }));
     return;
   }
   res.writeHead(404);
@@ -204,9 +239,11 @@ try {
   });
   check('管理员给自己分配 10 次额度', allocateAdmin.status === 200 && allocateAdmin.json?.user?.daily_ai_limit === 10);
 
-  // 4. interpret 成功 + 额度消耗
+  // 4. interpret 成功 + 额度消耗 + 结构化输出
   const interp1 = await api('/api/interpret', { method: 'POST', cookie: adminCookie, body: threeCards });
-  check('admin /api/interpret 200', interp1.status === 200 && interp1.json?.interpretation === STUB_TEXT);
+  check('admin /api/interpret 200', interp1.status === 200 && interp1.json?.interpretation?.format === 'structured');
+  check('结构化解读：综合叙述来自 stub', interp1.json?.interpretation?.synthesis === STUB_SYNTHESIS);
+  check('结构化解读：三张牌分析齐全', interp1.json?.interpretation?.cards?.length === 3);
   check('解读后 admin 额度 used_today = 1', interp1.json?.quota?.used_today === 1);
   const quota1 = await api('/api/quota', { cookie: adminCookie });
   check('/api/quota 反映已用 1 次', quota1.json?.quota?.used_today === 1);
@@ -215,13 +252,17 @@ try {
   const created = await api('/api/readings', {
     method: 'POST',
     cookie: adminCookie,
-    body: { ...threeCards, ai_interpretation: interp1.json?.interpretation },
+    body: { ...threeCards, ai_interpretation: JSON.stringify(interp1.json?.interpretation) },
   });
   check('保存记录 201', created.status === 201 && !!created.json?.reading?.id);
+  check('保存的是结构化解读 JSON', String(created.json?.reading?.ai_interpretation ?? '').includes('"format":"structured"'));
   const adminReadingId = created.json?.reading?.id;
 
   const list = await api('/api/readings', { cookie: adminCookie });
   check('列表包含新记录', list.status === 200 && list.json?.items?.some((r) => r.id === adminReadingId));
+
+  const searchHit = await api(`/api/readings?q=${encodeURIComponent('冒烟测试')}`, { cookie: adminCookie });
+  check('A7 关键词搜索命中', searchHit.status === 200 && searchHit.json?.total >= 1);
 
   const patched = await api(`/api/readings/${adminReadingId}`, {
     method: 'PATCH',
@@ -273,11 +314,13 @@ try {
   check('member 第 1/2 次解读 200', m1.status === 200 && m2.status === 200);
   check('member used_today = 2', m2.json?.quota?.used_today === 2);
 
-  // 10. AI 失败 → 明确错误、无伪解读、额度不扣减
+  // 10. AI 失败 → 明确错误、无伪解读、额度不扣减；自动重试一次（stub 收到 2 次）
   stubMode = 'fail';
+  const beforeFail = stubCount;
   const mFail = await api('/api/interpret', { method: 'POST', cookie: memberCookie, body: threeCards });
   check('AI 上游失败 → 502 AI_UPSTREAM_ERROR', mFail.status === 502 && mFail.json?.error?.code === 'AI_UPSTREAM_ERROR');
   check('失败响应不含伪造解读文本', !mFail.json?.interpretation);
+  check('B4 失败自动重试一次（stub 收到 2 次请求）', stubCount === beforeFail + 2, `stubCount ${beforeFail} → ${stubCount}`);
   const qAfterFail = await api('/api/quota', { cookie: memberCookie });
   check('失败不扣额度（used_today 仍为 2）', qAfterFail.json?.quota?.used_today === 2);
 
@@ -306,15 +349,63 @@ try {
   const guestQuota = await api('/api/quota', { cookie: guestCookie });
   check('邀请码用户初始额度为 0', guestQuota.status === 200 && guestQuota.json?.quota?.daily_limit === 0);
 
-  // 13. 全站统计
+  // 13. 全站统计 + token 记账 + 流式解读 + 上下文注入 + 登录限流
   // 注：admin 的第一条记录在 CRUD 用例里被删，现存 1 条（admin 第二条）→ total_readings >= 1
   const adminStats = await api('/api/admin/stats', { cookie: adminCookie });
   check(
     'admin stats 聚合（≥1 记录、≥3 用户）',
     adminStats.status === 200 && adminStats.json?.stats?.total_readings >= 1 && adminStats.json?.stats?.users?.length >= 3
   );
-  // admin 1 + member 成功 3 + member 失败 1（请求到达 stub 后返回 500）
-  check('stub 总调用次数 = 5（1+3 成功 + 1 失败）', stubCount === 5, `stubCount=${stubCount}`);
+  check('B5 token 用量已记账（≥ 200）', (adminStats.json?.stats?.ai_tokens_total ?? 0) >= 200);
+
+  // A4 流式解读（admin 额度 10，已用 1）
+  const streamRes = await fetch(`${API}/api/interpret/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: adminCookie },
+    body: JSON.stringify(threeCards),
+  });
+  const streamText = await streamRes.text();
+  const doneEvent = streamText.split('\n\n').find((p) => p.includes('event: done'));
+  const doneData = doneEvent?.split('\n').find((l) => l.startsWith('data:'));
+  let streamDone = null;
+  try {
+    streamDone = doneData ? JSON.parse(doneData.slice(5).trim()) : null;
+  } catch {
+    streamDone = null;
+  }
+  check(
+    'A4 流式 SSE：delta + done 事件、结构化结果',
+    streamRes.status === 200 && streamText.includes('event: delta') && streamDone?.interpretation?.format === 'structured'
+  );
+
+  // B3 上下文注入（admin 已有 1 条记录）
+  const ctxInterp = await api('/api/interpret', { method: 'POST', cookie: adminCookie, body: { ...threeCards, include_context: true } });
+  const lastCall = await fetch(`http://127.0.0.1:${STUB_PORT}/__last`).then((r) => r.json());
+  let lastPrompt = '';
+  try {
+    lastPrompt = JSON.parse(lastCall.body)?.messages?.[1]?.content ?? '';
+  } catch {
+    lastPrompt = '';
+  }
+  check('B3 include_context=true 注入最近记录背景', ctxInterp.status === 200 && lastPrompt.includes('最近记录背景'));
+
+  // C2 登录限流（不存在的用户名，5 次失败 → 第 6 次 429）
+  let lastStatus = 0;
+  for (let i = 0; i < 5; i++) {
+    const bad = await api('/api/login', {
+      method: 'POST',
+      body: { site_access_key: vars.SITE_ACCESS_KEY, username: 'smoke_lock_probe', password: 'wrong-pw-000000' },
+    });
+    lastStatus = bad.status;
+  }
+  const lockedLogin = await api('/api/login', {
+    method: 'POST',
+    body: { site_access_key: vars.SITE_ACCESS_KEY, username: 'smoke_lock_probe', password: 'wrong-pw-000000' },
+  });
+  check('C2 连续失败 5 次 → 锁定 429 RATE_LIMITED', lastStatus === 401 && lockedLogin.status === 429 && lockedLogin.json?.error?.code === 'RATE_LIMITED');
+
+  // stub 调用计数：interp1(1) + m1/m2(2) + mFail 重试(2) + m3(1) + stream(1) + context(1) = 8
+  check('stub 总调用次数 = 8（含重试与流式）', stubCount === 8, `stubCount=${stubCount}`);
 } catch (err) {
   console.error('smoke run threw:', err?.stack ?? err);
   results.push({ name: 'unexpected exception', ok: false });
