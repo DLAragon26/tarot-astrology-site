@@ -17,8 +17,8 @@ migrations_dir = "migrations"
 # 一律用 `npx wrangler secret put <NAME>` 配置，绝不写入本文件。
 [vars]
 GLOBAL_DAILY_AI_LIMIT = "200"
-# 部署后改为你的 GitHub Pages 域名，如 "https://USERNAME.github.io,https://tarot-astrology-api.<subdomain>.workers.dev"
-ALLOWED_ORIGINS = "https://dlaragon26.github.io"
+# 自定义根域名 + 迁移期保留原 GitHub Pages 来源。
+ALLOWED_ORIGINS = "https://aragontarotastro.asia,https://dlaragon26.github.io"
 COOKIE_SECURE = "true"
 
 # 定时任务：每日 11:17（Asia/Shanghai）清理过期 session 与登录限流记录（C3）

@@ -1,8 +1,8 @@
 name: Deploy to GitHub Pages
 
 # 部署前在仓库 Settings → Secrets and variables → Actions → Variables 里配置三项（公开值，非密钥）：
-#   SITE_URL             = https://<username>.github.io
-#   PUBLIC_BASE_PATH     = /<repo-name>            （仓库名以 / 开头，如 /tarot-astrology-site）
+#   SITE_URL             = https://aragontarotastro.asia
+#   PUBLIC_BASE_PATH     = /
 #   PUBLIC_API_BASE_URL  = https://tarot-astrology-api.<你的子域>.workers.dev
 # 未配置时使用下面的占位默认值，构建仍会成功，但页面会连到错误的 API 地址。
 
@@ -42,7 +42,7 @@ jobs:
             fail=1
           fi
           if [ -z "$SITE_URL" ] || echo "$SITE_URL" | grep -qiE 'USERNAME\.github\.io'; then
-            echo "::error::Repository Variable SITE_URL 缺失或仍是占位符。请配置为 https://<username>.github.io。"
+            echo "::error::Repository Variable SITE_URL 缺失或仍是占位符。请配置为 https://aragontarotastro.asia。"
             fail=1
           fi
           exit $fail
@@ -59,14 +59,14 @@ jobs:
       - name: Build static site
         working-directory: web
         env:
-          SITE_URL: ${{ vars.SITE_URL || 'https://USERNAME.github.io' }}
-          PUBLIC_BASE_PATH: ${{ vars.PUBLIC_BASE_PATH || '/tarot-astrology-site' }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://aragontarotastro.asia' }}
+          PUBLIC_BASE_PATH: ${{ vars.PUBLIC_BASE_PATH || '/' }}
           PUBLIC_API_BASE_URL: ${{ vars.PUBLIC_API_BASE_URL || 'https://tarot-astrology-api.REPLACE_WITH_YOUR_WORKERS_SUBDOMAIN.workers.dev' }}
         run: npm run build
 
-      - name: Check subpath links (fail on broken base URLs)
+      - name: Check internal links (fail on broken base URLs)
         env:
-          PUBLIC_BASE_PATH: ${{ vars.PUBLIC_BASE_PATH || '/tarot-astrology-site' }}
+          PUBLIC_BASE_PATH: ${{ vars.PUBLIC_BASE_PATH || '/' }}
         run: node scripts/check-base-links.mjs
 
       - name: Verify card assets and manifest

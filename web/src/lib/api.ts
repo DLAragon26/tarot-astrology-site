@@ -6,9 +6,8 @@ const API_BASE = (import.meta.env.PUBLIC_API_BASE_URL ?? 'http://localhost:8787'
 
 /**
  * 站点基础路径，统一归一化为「以 / 结尾」。
- * Astro 的 `import.meta.env.BASE_URL` 是 base 配置原样字符串（子路径部署时为
- * `/tarot-astrology-site`，结尾没有斜杠），直接拼 `${base}draw` 会得到
- * `/tarot-astrology-sitedraw`。全站只在这里归一化一次，其他文件一律 import。
+ * Astro 的 `import.meta.env.BASE_URL` 是 base 配置原样字符串；自定义根域名通常为
+ * `/`，若未来改回子路径也可能不带尾斜杠。全站只在这里归一化一次。
  */
 export const SITE_BASE = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '') + '/';
 

@@ -51,8 +51,8 @@ npm run dev:worker
 | `npm run check` | TypeScript 类型检查 + astro check + secret-scan |
 | `npm test` | vitest：领域校验、额度、权限、记录归属、prompt、Worker API 集成 |
 | `npm run build` | 前端静态构建到 `web/dist` |
-| `npm run build:pages` | 按 GitHub Pages 子路径形态构建（`PUBLIC_BASE_PATH=/tarot-astrology-site`）；本地预览需先起 Worker，或显式传 `PUBLIC_API_BASE_URL` 指向你的 API 地址 |
-| `npm run check:base` | 子路径断链自检（配合 `build:pages` 使用；CI 在 build 之后、上传之前跑） |
+| `npm run build:pages` | 按自定义根域名形态构建（`SITE_URL=https://aragontarotastro.asia`、`PUBLIC_BASE_PATH=/`）；本地预览需先起 Worker，或显式传 `PUBLIC_API_BASE_URL` 指向你的 API 地址 |
+| `npm run check:base` | 站内链接自检（配合 `build:pages` 使用；CI 在 build 之后、上传之前跑） |
 | `npm run smoke` | 本地端到端冒烟：使用 `/tmp` 隔离 D1，自动起 AI stub + wrangler dev，跑 29 条断言；不触碰本地开发数据 |
 | `npm run cards:download` | 从 Wikimedia Commons 下载 78 张牌图并压成 WebP |
 | `npm run cards:import -- --from <目录>` | 将浏览器已下载的官方 PNG 离线导入为 78 张 WebP，并生成来源清单 |
@@ -63,9 +63,9 @@ npm run dev:worker
 完整步骤见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)。顺序：
 
 1. Cloudflare：建 D1、跑 migration、`wrangler deploy`、配 Secrets（名称清单见下）
-2. GitHub 仓库 Settings → Secrets and variables → Actions → **Variables** 配置三项公开值：`SITE_URL`、`PUBLIC_BASE_PATH`、`PUBLIC_API_BASE_URL`（workflow 已用 `${{ vars.* }}` 读取，未配置则用占位默认值）
-3. Worker 的 `ALLOWED_ORIGINS` 加上你的 Pages 域名
-4. GitHub：Settings → Pages → Source 选 "GitHub Actions"，push 即部署
+2. GitHub 仓库 Settings → Secrets and variables → Actions → **Variables** 配置三项公开值：`SITE_URL=https://aragontarotastro.asia`、`PUBLIC_BASE_PATH=/`、`PUBLIC_API_BASE_URL`
+3. Worker 的 `ALLOWED_ORIGINS` 包含 `https://aragontarotastro.asia`
+4. GitHub：Settings → Pages → Source 选 "GitHub Actions"，设置自定义域名并 push 部署
 
 ## Secrets 清单（只列名称与用途，值绝不入仓库）
 
@@ -93,7 +93,7 @@ npm run dev:worker
 | `SESSION_SECRET` | **Secret** | session cookie 的 HMAC 签名密钥（随机长串） |
 | `ADMIN_INITIAL_PASSWORD` | **Secret** | 仅首次引导创建 admin 用，改密后可删除 |
 | `GLOBAL_DAILY_AI_LIMIT` | 非敏感 | 全站每日 AI 上限默认值（`settings` 表优先） |
-| `ALLOWED_ORIGINS` | 非敏感 | CORS 白名单，逗号分隔，如 `https://USERNAME.github.io` |
+| `ALLOWED_ORIGINS` | 非敏感 | CORS 白名单，逗号分隔，如 `https://aragontarotastro.asia` |
 | `COOKIE_SECURE` | 非敏感 | 默认 `true`；仅本地 http 调试设 `false` |
 
 前端只有一项公开变量：`PUBLIC_API_BASE_URL`（Worker 地址，构建期注入，非密钥）。

@@ -79,13 +79,14 @@ curl https://<worker地址>/api/health   # {"ok":true}
 
 1. 把仓库推到 GitHub（public / private 均可；Pages Actions 部署对 private 仓库需 Pro）。
 2. 仓库 Settings → Secrets and variables → Actions → **Variables** 新建三项（都是公开值）：
-   - `SITE_URL` = `https://<username>.github.io`
-   - `PUBLIC_BASE_PATH` = `/<repo-name>`
+   - `SITE_URL` = `https://aragontarotastro.asia`
+   - `PUBLIC_BASE_PATH` = `/`
    - `PUBLIC_API_BASE_URL` = 第 3 步的 Worker 地址
-   workflow 通过 `${{ vars.* }}` 注入，未配置时使用文件内占位默认值（构建仍成功，但前端会连错 API）。
+   workflow 通过 `${{ vars.* }}` 注入；当前生产使用自定义根域名。
 3. GitHub 仓库 Settings → Pages → Build and deployment → Source 选 **GitHub Actions**。
-4. push 到 `main` 触发部署；Actions 全绿后访问 `https://USERNAME.github.io/<repo>/`。
-5. 回到 Worker 配置，确认 `ALLOWED_ORIGINS` 包含该域名（否则浏览器会被 CORS 拒绝）。
+4. 在 Pages 设置中填写自定义域名 `aragontarotastro.asia`，按 GitHub 提示配置 DNSPod TXT 验证和根域名 A/AAAA 记录。
+5. push 到 `main` 触发部署；DNS 与 HTTPS 生效后访问 `https://aragontarotastro.asia/`。
+6. 回到 Worker 配置，确认 `ALLOWED_ORIGINS` 包含该域名（否则浏览器会被 CORS 拒绝）。
 
 ## 7. 牌面图像
 
@@ -138,6 +139,6 @@ npm run cards:assets:check
 
 ## 9. 常见问题
 
-- **CORS 报错**：`ALLOWED_ORIGINS` 没包含 Pages 域名，或带末尾斜杠不一致（配置不带斜杠）。
+- **CORS 报错**：`ALLOWED_ORIGINS` 没包含 `https://aragontarotastro.asia`，或带末尾斜杠不一致（配置不带斜杠）。
 - **401 循环跳登录**：cookie 被浏览器丢弃 —— 生产环境 `COOKIE_SECURE` 必须为 true 且站点是 HTTPS（Pages 天然满足）；本地调试用 `.dev.vars` 里 `COOKIE_SECURE=false`。
 - **AI 无响应**：`API_KEY`/`API_BASE_URL`/`MODEL_NAME` 配置错误时，/api/interpret 返回 502 且不扣额度。
