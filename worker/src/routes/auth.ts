@@ -12,6 +12,7 @@ import {
   clearCookieHeader,
   createSession,
   destroySession,
+  requestSessionValue,
   requireAuth,
   sessionCookieHeader,
   timingSafeEqualStr,
@@ -84,25 +85,17 @@ authRoutes.post('/login', async (c) => {
   await clearLoginFailures(c.env.DB, c.req.raw, username);
   const cookieValue = await createSession(c.env.DB, c.env, user.id);
   c.header('Set-Cookie', sessionCookieHeader(c.env, cookieValue));
-  return c.json({ user: toPublicUser(user) });
+  c.header('Cache-Control', 'no-store');
+  return c.json({ user: toPublicUser(user), session_token: cookieValue });
 });
 
 // POST /api/logout
 authRoutes.post('/logout', async (c) => {
-  await destroySession(c.env.DB, c.env, c.req.header('Cookie') ? readCookie(c.req.raw) : undefined);
+  await destroySession(c.env.DB, c.env, requestSessionValue(c.req.raw));
   c.header('Set-Cookie', clearCookieHeader(c.env));
+  c.header('Cache-Control', 'no-store');
   return c.json({ ok: true });
 });
-
-function readCookie(request: Request): string | undefined {
-  const header = request.headers.get('Cookie');
-  if (!header) return undefined;
-  for (const part of header.split(';')) {
-    const [k, ...rest] = part.trim().split('=');
-    if (k === 'tq_session') return rest.join('=');
-  }
-  return undefined;
-}
 
 // GET /api/me
 authRoutes.get('/me', requireAuth, (c) => {
@@ -173,5 +166,12 @@ authRoutes.post('/redeem', async (c) => {
   await clearLoginFailures(c.env.DB, c.req.raw, username);
   const cookieValue = await createSession(c.env.DB, c.env, id);
   c.header('Set-Cookie', sessionCookieHeader(c.env, cookieValue));
-  return c.json({ user: { id, username, role: 'member', daily_ai_limit: null, must_change_password: false, created_at: ts } }, 201);
+  c.header('Cache-Control', 'no-store');
+  return c.json(
+    {
+      user: { id, username, role: 'member', daily_ai_limit: null, must_change_password: false, created_at: ts },
+      session_token: cookieValue,
+    },
+    201
+  );
 });

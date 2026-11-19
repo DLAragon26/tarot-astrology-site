@@ -26,7 +26,7 @@ export const MEMBER_PW = 'member-pw-123456';
 export async function login(
   env: Env,
   body: Record<string, string>
-): Promise<{ res: Response; cookie: string }> {
+): Promise<{ res: Response; cookie: string; token: string }> {
   const res = await appRequest(env)('/api/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -34,7 +34,14 @@ export async function login(
   });
   const setCookie = res.headers.get('Set-Cookie') ?? '';
   const m = setCookie.match(/tq_session=([^;]+)/);
-  return { res, cookie: m ? `tq_session=${m[1]}` : '' };
+  let token = '';
+  try {
+    const parsed = (await res.clone().json()) as { session_token?: unknown };
+    if (typeof parsed.session_token === 'string') token = parsed.session_token;
+  } catch {
+    /* error responses may not be JSON */
+  }
+  return { res, cookie: m ? `tq_session=${m[1]}` : '', token };
 }
 
 type Fetcher = (path: string, init?: RequestInit) => Promise<Response>;
@@ -47,10 +54,10 @@ export function appRequest(env: Env): Fetcher {
 export async function setupAdmin(
   env: Env = makeEnv(),
   req: Fetcher = appRequest(env)
-): Promise<{ env: Env; req: Fetcher; adminCookie: string }> {
-  const { res, cookie } = await login(env, ADMIN_LOGIN);
+): Promise<{ env: Env; req: Fetcher; adminCookie: string; adminToken: string }> {
+  const { res, cookie, token } = await login(env, ADMIN_LOGIN);
   if (res.status !== 200) throw new Error(`admin bootstrap failed: ${res.status}`);
-  return { env, req, adminCookie: cookie };
+  return { env, req, adminCookie: cookie, adminToken: token };
 }
 
 export async function createMember(

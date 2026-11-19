@@ -1,6 +1,16 @@
 import { ALL_CARDS, getCard, getSpread, SPREAD_IDS, TOPIC_TAGS, MOOD_TAGS } from '@tarot/shared';
 import type { DrawnCard, InterpretationPayload, InterpretResponse, ReadingMode, SpreadId, TarotCard } from '@tarot/shared';
-import { ApiError, api, attachImageFallback, cardImageSrc, el, redirectToLogin, API_BASE, SITE_BASE } from '../lib/api';
+import {
+  ApiError,
+  api,
+  attachImageFallback,
+  cardImageSrc,
+  el,
+  redirectToLogin,
+  sessionAuthHeaders,
+  API_BASE,
+  SITE_BASE,
+} from '../lib/api';
 
 // 抽牌 / 线下录入共用的核心交互：洗牌、手动选牌（A1）、翻牌、逆位旋转（A2）、
 // AI 流式解读（A4）、结构化渲染（A5）、保存。
@@ -295,7 +305,7 @@ export async function requestInterpret(
     const res = await fetch(`${API_BASE}/api/interpret/stream`, {
       method: 'POST',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...sessionAuthHeaders() },
       body: JSON.stringify(buildPayloadFromState(state)),
     });
     if (res.status === 401) {

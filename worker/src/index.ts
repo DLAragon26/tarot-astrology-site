@@ -30,7 +30,7 @@ app.use('*', async (c, next) => {
     if (origin && allowed.has(origin.replace(/\/+$/, ''))) {
       c.header('Access-Control-Allow-Origin', origin);
       c.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
-      c.header('Access-Control-Allow-Headers', 'Content-Type');
+      c.header('Access-Control-Allow-Headers', 'Authorization, Content-Type');
       c.header('Access-Control-Allow-Credentials', 'true');
       c.header('Access-Control-Max-Age', '86400');
       c.header('Vary', 'Origin');

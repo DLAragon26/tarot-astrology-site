@@ -67,7 +67,7 @@ const links = [
     {
       showNav && (
         <script>
-          import { api, redirectToLogin } from '../lib/api';
+          import { api, clearSessionToken, redirectToLogin } from '../lib/api';
           (async () => {
             const chip = document.getElementById('user-chip');
             const btn = document.getElementById('logout-btn') as HTMLButtonElement | null;
@@ -88,6 +88,8 @@ const links = [
                 await api('/api/logout', { method: 'POST' });
               } catch {
                 /* 忽略 */
+              } finally {
+                clearSessionToken();
               }
               redirectToLogin();
             });

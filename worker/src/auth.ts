@@ -111,19 +111,19 @@ export async function createSession(DB: D1Database, env: Env, userId: string): P
   return `${token}.${mac}`;
 }
 
-export async function destroySession(DB: D1Database, env: Env, cookieValue: string | undefined): Promise<void> {
-  const token = await verifyCookieValue(env, cookieValue);
+export async function destroySession(DB: D1Database, env: Env, sessionValue: string | undefined): Promise<void> {
+  const token = await verifySessionValue(env, sessionValue);
   if (!token) return;
   const tokenHash = await sha256Base64Url(token);
   await DB.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(tokenHash).run();
 }
 
-async function verifyCookieValue(env: Env, cookieValue: string | undefined): Promise<string | null> {
-  if (!cookieValue) return null;
-  const idx = cookieValue.indexOf('.');
+async function verifySessionValue(env: Env, sessionValue: string | undefined): Promise<string | null> {
+  if (!sessionValue) return null;
+  const idx = sessionValue.indexOf('.');
   if (idx <= 0) return null;
-  const token = cookieValue.slice(0, idx);
-  const mac = cookieValue.slice(idx + 1);
+  const token = sessionValue.slice(0, idx);
+  const mac = sessionValue.slice(idx + 1);
   const expect = await hmacBase64Url(env.SESSION_SECRET, token);
   return timingSafeEqualStr(mac, expect) ? token : null;
 }
@@ -136,6 +136,18 @@ function readCookie(request: Request, name: string): string | undefined {
     if (k === name) return rest.join('=');
   }
   return undefined;
+}
+
+function readBearer(request: Request): string | undefined {
+  const header = request.headers.get('Authorization');
+  if (!header?.startsWith('Bearer ')) return undefined;
+  const value = header.slice('Bearer '.length).trim();
+  return value.length > 0 && value.length <= 512 ? value : undefined;
+}
+
+/** Authorization Bearer 优先，Cookie 作为兼容回退。 */
+export function requestSessionValue(request: Request): string | undefined {
+  return readBearer(request) ?? readCookie(request, SESSION_COOKIE_NAME);
 }
 
 export function sessionCookieHeader(env: Env, value: string): string {
@@ -155,8 +167,7 @@ export function clearCookieHeader(env: Env): string {
 
 /** 从请求解析 session 并加载用户；无效/过期/禁用一律返回 null */
 export async function getSessionUser(DB: D1Database, env: Env, request: Request): Promise<UserRow | null> {
-  const cookieValue = readCookie(request, SESSION_COOKIE_NAME);
-  const token = await verifyCookieValue(env, cookieValue);
+  const token = await verifySessionValue(env, requestSessionValue(request));
   if (!token) return null;
   const tokenHash = await sha256Base64Url(token);
   const row = await DB.prepare(

@@ -3,6 +3,7 @@
 import cardAssets from '../assets/card-assets.json';
 
 const API_BASE = (import.meta.env.PUBLIC_API_BASE_URL ?? 'http://localhost:8787').replace(/\/+$/, '');
+const SESSION_TOKEN_KEY = 'tq_session_token';
 
 /**
  * 站点基础路径，统一归一化为「以 / 结尾」。
@@ -33,17 +34,53 @@ export class ApiError extends Error {
   }
 }
 
+export function getSessionToken(): string | null {
+  try {
+    return sessionStorage.getItem(SESSION_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function storeSessionToken(value: unknown): void {
+  if (typeof value !== 'string' || value.length === 0) return;
+  try {
+    sessionStorage.setItem(SESSION_TOKEN_KEY, value);
+  } catch {
+    /* Safari 隐私模式下保持 Cookie 兼容路径 */
+  }
+}
+
+export function clearSessionToken(): void {
+  try {
+    sessionStorage.removeItem(SESSION_TOKEN_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function sessionAuthHeaders(): Record<string, string> {
+  const token = getSessionToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export function redirectToLogin(): void {
+  clearSessionToken();
   location.href = `${SITE_BASE}`;
 }
 
 export async function api<T = unknown>(path: string, init: RequestInit = {}, opts: { redirectOn401?: boolean } = {}): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (init.body !== undefined && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  const token = getSessionToken();
+  if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`);
   const res = await fetch(`${API_BASE}${path}`, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(init.headers ?? {}) },
     ...init,
+    credentials: 'include',
+    headers,
   });
   if (res.status === 401 && opts.redirectOn401 !== false) {
+    clearSessionToken();
     redirectToLogin();
     throw new ApiError(401, 'UNAUTHENTICATED', '请先登录');
   }

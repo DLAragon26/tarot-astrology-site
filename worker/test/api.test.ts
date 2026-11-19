@@ -104,17 +104,49 @@ describe('认证与未登录防护', () => {
     const me = await req('/api/me', { headers: { Cookie: adminCookie, ...ORIGIN } });
     expect(me.status).toBe(401);
   });
+
+  it('Bearer Token 可独立认证并在退出时吊销', async () => {
+    const { res, token } = await login(env, ADMIN_LOGIN);
+    expect(res.status).toBe(200);
+    expect(token.length).toBeGreaterThan(20);
+
+    const me = await req('/api/me', {
+      headers: { Authorization: `Bearer ${token}`, ...ORIGIN },
+    });
+    expect(me.status).toBe(200);
+    expect(((await me.json()) as { user: { role: string } }).user.role).toBe('admin');
+
+    const invalid = await req('/api/me', {
+      headers: { Authorization: `Bearer ${token}x`, ...ORIGIN },
+    });
+    expect(invalid.status).toBe(401);
+
+    const logout = await req('/api/logout', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, ...ORIGIN },
+    });
+    expect(logout.status).toBe(200);
+    const after = await req('/api/me', {
+      headers: { Authorization: `Bearer ${token}`, ...ORIGIN },
+    });
+    expect(after.status).toBe(401);
+  });
 });
 
 describe('CORS', () => {
   it('白名单 origin 预检通过并返回 CORS 头', async () => {
     const res = await req('/api/login', {
       method: 'OPTIONS',
-      headers: { Origin: 'https://pages.test', 'Access-Control-Request-Method': 'POST' },
+      headers: {
+        Origin: 'https://pages.test',
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'Authorization, Content-Type',
+      },
     });
     expect(res.status).toBe(204);
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://pages.test');
     expect(res.headers.get('Access-Control-Allow-Credentials')).toBe('true');
+    expect(res.headers.get('Access-Control-Allow-Headers')).toContain('Authorization');
   });
 
   it('非白名单 origin 一律 403（含预检与实际请求）', async () => {

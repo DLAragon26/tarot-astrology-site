@@ -90,7 +90,7 @@ npm run dev:worker
 | `MAX_TOKENS` | 可选 | 单次解读输出上限，默认 900 |
 | `TEMPERATURE` | 可选 | 采样温度，默认 0.8 |
 | `SITE_ACCESS_KEY` | **Secret** | 登录三要素之一：站点访问密钥 |
-| `SESSION_SECRET` | **Secret** | session cookie 的 HMAC 签名密钥（随机长串） |
+| `SESSION_SECRET` | **Secret** | session Cookie 与 Bearer Token 的 HMAC 签名密钥（随机长串） |
 | `ADMIN_INITIAL_PASSWORD` | **Secret** | 仅首次引导创建 admin 用，改密后可删除 |
 | `GLOBAL_DAILY_AI_LIMIT` | 非敏感 | 全站每日 AI 上限默认值（`settings` 表优先） |
 | `ALLOWED_ORIGINS` | 非敏感 | CORS 白名单，逗号分隔，如 `https://aragontarotastro.asia` |

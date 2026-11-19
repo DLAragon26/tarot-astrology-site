@@ -25,6 +25,7 @@
 - 邀请码默认 7 天有效、仅可使用一次，管理员可在到期前撤销。
 - 密码用 PBKDF2-SHA256（100,000 迭代、16B 随机盐、32B 派生键）哈希存储，恒时比较防时序侧信道；100,000 是 Cloudflare Workers WebCrypto 当前允许的上限。
 - Session：32B 随机 token；D1 只存 SHA-256 摘要；cookie 值带 HMAC 签名，篡改即失效。
+- 登录同时返回 HMAC 签名的 Bearer Session Token；前端仅在 `sessionStorage` 保存，并优先通过 `Authorization: Bearer` 认证。该后备路径用于 Safari 和移动版 Chrome 阻止跨站 Cookie 的环境。
 - Cookie：`tq_session`，生产为 `HttpOnly; Secure; SameSite=None; Path=/; Max-Age=604800`（7 天），以支持 GitHub Pages 与 workers.dev 跨站 API；本地 http 调试设 `COOKIE_SECURE=false` 时自动回退为 `SameSite=Lax`。
 - 重置密码或停用账号会立即吊销该用户全部会话。
 
